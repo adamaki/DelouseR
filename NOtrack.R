@@ -26,49 +26,40 @@ readinteger <- function(message = 'Not a number')
 
 
 # 1. Set working directory and input variables----------------------------
-modout <- bwlabel(channel(readImage(file.choose()), 'gray')) # choose modeloutling.png image
 
-workingdir <- 'G:/Data/Cleaner Fish Learning/Week 1 Experimental Training/Day 1 - Trial 1/13_extracted' # change to location of data
+workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse/C8-S' # change to location of data
 setwd(workingdir)
 
-inputfile <- 'GOPRO013'
+inputfile <- 'C8-S'
 files <- list.files(path = workingdir, pattern = inputfile, all.files = FALSE, recursive = FALSE)
-start <- 101 # start frame number
-end <- 200 # end frame number
-rotangle <- 18 # image rotation angle to translate image to cartesian grid
-xrange <- c(159,522) # x-axis crop dimensions
-yrange <- c(104, 478) # y-axis crop dimensions
+start <- 306 # start frame number
+end <- 605 # end frame number
+rotangle <- -1 # image rotation angle to translate image to cartesian grid
+xrange <- c(167,504) # x-axis crop dimensions
+yrange <- c(12, 347) # y-axis crop dimensions
 
-centre <- c(180, 176) # coords for centre of tank in cropped and rotated image
-inrad <- 29 # radius of drain mask in pixels
-outrad <- 170 # radius of tank mask in pixels
-cal1 <- c(40, 188) # location of 1st calibration marker in any image
-cal2 <- c(329, 177) # location of 2nd calibration marker in any image
+centre <- c(171, 169) # coords for centre of tank in cropped and rotated image
+outrad <- 169 # radius of tank mask in pixels
+cal1 <- c(3, 166) # location of 1st calibration marker in any image
+cal2 <- c(338, 166) # location of 2nd calibration marker in any image
 caldist <- 100 # real distance between calibration markers in cm
-modpiv.l <- c(111, 185) # location of left model pivot axis in cropped and rotated image
-modpiv.r <- c(247, 189) # location of right model pivot axis in cropped and rotated image
-curve.fitting <- T # Turn curve fitting for model rotation on or off
-dir.l <- F # direction of left model (switch to F if wrong direction in output)
-dir.r <- F # direction of right model (switch to F if wrong direction in output)
+nodims <- c(235, 166, 9) # dimensions of circle for novel object (x, y, r)
+rmask <- c(126, 155, 33, 69) # coordinates for masking light reflection (x1:x2, y1:y2)
 
 # image testing to refine rotating and cropping
-test.img <- readImage(files[[start]])
+test.img <- readImage(files[[350]])
 display(rotate(test.img, rotangle)) # display rotated image to find crop coordinates
 test.img <- (rotate(test.img, rotangle)[xrange[[1]]:xrange[[2]], yrange[[1]]:yrange[[2]],])
 display(test.img)
-test.img <- drawCircle(test.img, centre[[1]], centre[[2]], radius = inrad, col = 'yellow', fill = F)
 test.img <- drawCircle(test.img, centre[[1]], centre[[2]], radius = outrad, col = 'yellow', fill = F)
 display(test.img)
-test.img <- drawCircle(test.img, modpiv.l[[1]], modpiv.l[[2]], radius = 2, col = 'light blue', fill = T)
-test.img <- drawCircle(test.img, modpiv.r[[1]], modpiv.r[[2]], radius = 2, col = 'light blue', fill = T)
+test.img <- drawCircle(test.img, nodims[[1]], nodims[[2]], radius = nodims[[3]], col = 'light blue', fill = T)
 display(test.img)
 
 rm(test.img)
 
 # calculated variables
 cfactor <- caldist/round(sqrt(abs(cal1[[1]]-cal2[[1]])^2+abs(cal1[[2]]-cal2[[2]])^2)) # calculate real distance conversion factor
-modout <- resize(modout, w = round(dim(modout)[[1]]*(0.2288/cfactor))) > 0 # resize model image
-#modout <- rotate(modout, -90)
 
 # 2. load image set, modify images for analysis and create mean of image stack---------------------------------
 
@@ -78,186 +69,47 @@ system.time({
   
   mod_stack <- readImage(files[start])
   mod_stack <- (rotate(mod_stack, rotangle, bg.col = 0.5)[xrange[[1]]:xrange[[2]], yrange[[1]]:yrange[[2]],])
-  #mod_stack <- channel(mod_stack, 'blue')
-  
+
   for(i in (start+1):end){
     image <- readImage(files[i]) # load image file
     mod_stack <- EBImage::combine(mod_stack, rotate(image, rotangle, bg.col = 0.5)[xrange[[1]]:xrange[[2]], yrange[[1]]:yrange[[2]],])
-    #mod_stack <- EBImage::combine(mod_stack, channel(image, 'blue'))
   }
-  
-  # create blue stack for tracking fish
-  #blue_stack <- channel(mod_stack, 'blue')
-  blue_stack <- channel(mod_stack, 'gray')
-  blue_stack <- blue_stack*(1/max(blue_stack)) # increase contrast to max
-  blue_stack <- gblur(blue_stack, sigma = 3) # Gaussian smoothing filter
-  blue_stack_mean <- as.Image(rowMeans(blue_stack, dims = 2)) # create mean image of stack
-  
-  # create rgb stack for tracking model
-  
-  # extract red channel and modify
-  red_stack <- channel(mod_stack, 'red')
-  red_stack <- 1-red_stack # negative
-  red_stack <- red_stack*(1/max(red_stack)) # increase contrast to max
-  red_stack <- gblur(red_stack, sigma = 1) # Gaussian smoothing filter
-  
+ 
   green_stack <- channel(mod_stack, 'green')
-  green_stack <- 1-green_stack
+  #green_stack <- 1-green_stack
   green_stack <- green_stack*(1/max(green_stack)) # increase contrast to max
   green_stack <- gblur(green_stack, sigma = 1) # Gaussian smoothing filter
-  
-  rgb_stack <- red_stack*green_stack*blue_stack
-  #display(rgb_stack*(1/max(rgb_stack)))
+  green_stack_mean <- as.Image(rowMeans(green_stack, dims = 2)) # create mean image of stack
   
   Sys.sleep(2)
   
-  # 3. model tracking code----------------------------------------------------------------------------------
-  
-  model_stack <- rgb_stack
-  
-  # adaptive threshold filter
-  disc <- makeBrush(31, 'disc')
-  disc <- disc / sum(disc)
-  offset <- 0.001
-  
-  # model size thresholds based on image size
-  mod.min <- round((dim(model_stack)[[1]] * dim(model_stack)[[2]]) * 0.00325) # constant is area of image that is model, i.e. 0.325%
-  mod.max <- round((dim(model_stack)[[1]] * dim(model_stack)[[2]]) * 0.0065)
-  
-  # create mask of model radii
-  mmask <- floodFill(mod_stack[,,,1], c(1, 1, 1, 1), col = 'black', tolerance = 255)
-  mmask <- drawCircle(mmask, modpiv.l[[1]], modpiv.l[[2]], radius = 22/cfactor, fill = T, col = 'white')
-  mmask <- drawCircle(mmask, modpiv.r[[1]], modpiv.r[[2]], radius = 22/cfactor, fill = T, col = 'white')
-  mmask <- drawCircle(mmask, centre[[1]], centre[[2]], radius = inrad, fill = T, col = 'black')
-  mmask <- channel(mmask, 'red')
-  
-  #modangles <- data.frame(ang.l = numeric(), ang.r = numeric())
-  modangles <- data.frame(rad.l = numeric(), rad.r = numeric(), ang.l = numeric(), ang.r = numeric(), dir.l = character(), dir.r = character())
-  
-  for(s in 1:dim(model_stack)[[3]]){
-    
-    test <- model_stack[,,s]
-    
-    test <- test > filter2(test, disc) + offset
-    
-    for(b in 1:10){
-      test <- opening(test, makeBrush(5, shape = 'disc'))
-    }
-    
-    test <- test * mmask
-    
-    test <- bwlabel(test)
-    sf <- computeFeatures.shape(test, rgb_stack[,,1])
-    test <- rmObjects(test, which(sf[,'s.area'] < mod.min | sf[,'s.area'] > mod.max)) # keep model-sized objects
-    
-    test <- watershed(distmap(test), 5) # splits joined objects using watershed function
-    #display(colorLabels(test, normalize = T))
-    
-    sf <- computeFeatures.shape(test, rgb_stack[,,1])
-    test <- rmObjects(test, which(sf[,'s.area'] < mod.min | sf[,'s.area'] > mod.max))  # keep model-sized objects
-    
-    mf <- computeFeatures.moment(test, rgb_stack[,,1])
-    test <- rmObjects(test, which(mf[,'m.eccentricity'] < 0.96))  # remove objects that are not nearly a straight line
-    
-    mf <- computeFeatures.moment(test, rgb_stack[,,1])
-    #test <- rmObjects(test, which( max(abs(mf[,'m.cx']-modpiv.l[[1]])+abs(mf[,'m.cy']-modpiv.l[[2]])) & mf[,'m.cx']<dim(test)[[1]]/2 | max(abs(mf[,'m.cx']-modpiv.r[[1]])+abs(mf[,'m.cy']-modpiv.r[[2]])) & mf[,'m.cx']>dim(test)[[1]]/2 ))
-    if(is.matrix(get('mf'))) {
-      while(nrow(mf)>2){
-        test <- rmObjects(test, which.max( abs(mf[,'m.cx']-modpiv.l[[1]])+abs(mf[,'m.cy']-modpiv.l[[2]]) + abs(mf[,'m.cx']-modpiv.r[[1]])+abs(mf[,'m.cy']-modpiv.r[[2]]) )) # remove extra objects furthest away from model pivots defined in setup
-        mf <- computeFeatures.moment(test, rgb_stack[,,1])
-      }
-    }
-    
-    mf <- computeFeatures.moment(test, rgb_stack[,,1])
-    
-    modrad.l <- mf[which.min(mf[,'m.cx']), 'm.theta'] # select left model angle by min x coord
-    modrad.r <- mf[which.max(mf[,'m.cx']), 'm.theta'] # select right model angle by max x coord
-    
-    modang.l <- ifelse(modrad.l < 0, 180+(modrad.l*180/pi), modrad.l*180/pi) # convert to degrees and account for negative values
-    #modang.l <- ifelse(modang.l > 180, modang.l-90, modang.l)
-    modang.r <- ifelse(modrad.r < 0, 180+(modrad.r*180/pi), modrad.r*180/pi) # convert to degrees and account for negative values
-    #modang.r <- ifelse(modang.r > 180, modang.r-90, modang.r)
-    
-    # nested if/else to get model direction right
-    #if(dir.l == T){
-    #  if(dir.r == T){
-    #    #modangles <- add_row(modangles, ang.l = modang.l*180/pi, ang.r = modang.r*180/pi) # add model angles to list of angles 
-    #    modangles <- add_row(modangles, rad.l = modrad.l, rad.r = modrad.r, ang.l = modang.l, ang.r = modang.r)
-    #  } else {
-    #    modangles <- add_row(modangles, rad.l = modrad.l, rad.r = modrad.r, ang.l = modang.l, ang.r = 180+modang.r) # add model angles to list of angles  
-    #  }
-    #  
-    #} else {
-    #  if(dir.r == T){
-    #    modangles <- add_row(modangles, rad.l = modrad.l, rad.r = modrad.r, ang.l = 180+modang.l, ang.r = modang.r) # add model angles to list of angles  
-    #  } else {
-    #    modangles <- add_row(modangles, rad.l = modrad.l, rad.r = modrad.r, ang.l = 180+modang.l, ang.r = 180+modang.r) # add model angles to list of angles  
-    #  }
-    #}
-    modangles <- add_row(modangles, rad.l = modrad.l, rad.r = modrad.r, ang.l = modang.l, ang.r = modang.r, dir.l = ifelse(modang.l > last(modangles$ang.l), 'C', 'A'), dir.r = ifelse(modang.r > last(modangles$ang.r), 'C', 'A')) # add model angles to list of angles
-    
-    
-  } # end of model thresholding loop
-  
-  # convert radians angles to degrees
-  #modangles$ang.l <- modangles$ang.l*180/pi
-  #modangles$ang.r <- 180+(modangles$ang.r*180/pi)
-  
-  # polynomial curve fitting to smooth turn angles of models
-  if (curve.fitting == T){
-    fit <- lm(modangles$ang.l ~ poly(as.numeric(rownames(modangles)), 10, raw = T))
-    modangles$pred.l <- predict(fit, data.frame(x = seq(1, nrow(modangles), 1)))
-    fit <- lm(modangles$ang.r ~ poly(as.numeric(rownames(modangles)), 10, raw = T))
-    modangles$pred.r <- predict(fit, data.frame(x = seq(1, nrow(modangles), 1)))
-  } else {
-    modangles$pred.l <- modangles$ang.l
-    modangles$pred.r <- modangles$ang.r
-  }
-  
-  for(t in 1:dim(model_stack)[[3]]){
-    
-    mod.l <- rotate(modout, modangles[t, 'pred.l']) # rotate left model by detected angle
-    mod.r <- rotate(modout, modangles[t, 'pred.r']) # rotate right model by detected angle
-    
-    mod.l <- translate(mod.l, c(modpiv.l[[1]] - (dim(mod.l)[[1]]/2), modpiv.l[[2]] - (dim(mod.l)[[2]]/2)))[0:dim(red_stack)[[1]], 0:dim(red_stack)[[2]]] # translate left model to correct position and crop
-    mod.r <- translate(mod.r, c(modpiv.r[[1]] - (dim(mod.r)[[1]]/2), modpiv.r[[2]] - (dim(mod.r)[[2]]/2)))[0:dim(red_stack)[[1]], 0:dim(red_stack)[[2]]] # translate left model to correct position and crop
-    
-    model_stack[,,t] <- bwlabel(mod.l + mod.r) # combine left and right model outlines
-    
-    #display(model_stack, method = 'raster', all = T)
-    
-    #overlay <- paintObjects(thresh_stack[,,t], mod_stack[,,,t], col = c('#ff00ff', '#ff00ff'), opac = c(1, 0), thick = T) # paint fish outline in purple
-    #overlay <- paintObjects(model_stack[,,t], overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
-    #overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = inrad, col = 'yellow', fill = F)
-    #overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = outrad, col = 'yellow', fill = F)
-    #writeImage(overlay, gsub('.jpg', '_tracked.png', files[[t]]))
-  }
-  
-  #test_stack <- test_stack[,,-c(1)] 
-  Sys.sleep(2)
   
   # 4. Subtract mean image from stack, threshold image stack, mask outside tank and remove noise-----------------------------------------
   
-  thresh_stack <- blue_stack_mean # seed thresholded image stack
+  thresh_stack <- green_stack_mean # seed thresholded image stack
   
   # create mask of tank area
-  tmask <- floodFill(mod_stack[,,,1], c(1, 1, 1, 1), col = 'black', tolerance = 255)
-  tmask <- drawCircle(tmask, centre[[1]], centre[[2]], radius = outrad, fill = T, col = 'white')
-  tmask <- drawCircle(tmask, centre[[1]], centre[[2]], radius = inrad, fill = T, col = 'black')
-  tmask <- channel(tmask, 'red')
+  tmask <- floodFill(green_stack[,,1], c(1, 1), col = 0, tolerance = 255)
+  tmask <- drawCircle(tmask, centre[[1]], centre[[2]], radius = outrad, fill = T, col = 1)
   tmask <- bwlabel(tmask)
   
-  for(j in 1:dim(blue_stack)[[3]]){
-    #subimg <- blue_stack[,,j] - blue_stack_mean
-    subimg <- blue_stack_mean - blue_stack[,,j]
+  # create novel object mask
+  nomask <- floodFill(green_stack[,,1], c(1, 1), col = 0, tolerance = 255)
+  nomask <- drawCircle(nomask, nodims[1], nodims[2], nodims[3], col = 1, fill = T)
+  nomask <- bwlabel(nomask)
+  
+  
+  for(j in 1:dim(green_stack)[[3]]){
+    subimg <- green_stack_mean - green_stack[,,j]
+    subimg[rmask[1]:rmask[2], rmask[3]:rmask[4]] <- 0 # mask out light reflection
+    subimg <- subimg-(1-tmask) # mask outside tank
+    subimg <- subimg-(nomask) # mask out novel object
+    
     subimg <- subimg*(1/max(subimg))
-    fmask <- dilate(model_stack[,,j], makeBrush(7, shape = 'disc')) # make mask for models
-    subimg <- subimg > 0.75
-    subimg <- 1-(1-subimg + fmask) # mask out models
-    subimg <- subimg > 0.99
+    subimg <- subimg > 0.60
     subimg <- bwlabel(subimg)
-    sf <- computeFeatures.shape(subimg, blue_stack[,,j]) # calculate shape features
-    mf <- computeFeatures.moment(subimg, blue_stack[,,j]) # calculate moment features 
+    sf <- computeFeatures.shape(subimg, green_stack[,,j]) # calculate shape features
+    mf <- computeFeatures.moment(subimg, green_stack[,,j]) # calculate moment features 
     if(is.matrix(get('mf'))) {
       mf <- as.data.frame(mf)
       mf$tmask <- ifelse(tmask[matrix(data = c(round(mf[,'m.cx']), round(mf[,'m.cy'])), nrow(mf))] == 1, 1, 0) # test whether object centre coords are in mask
@@ -269,12 +121,9 @@ system.time({
   
   thresh_stack <- thresh_stack[,,-c(1)] # remove first image, which is stack_mean
   
-  # segment images in z stack
-  #thresh_stack <- bwlabel(thresh_stack)
-  
   # fill holes in fish and dilate to join gaps
   thresh_stack <- fillHull(thresh_stack)
-  thresh_stack <- dilate(thresh_stack, makeBrush(11, shape = 'disc'))
+  thresh_stack <- dilate(thresh_stack, makeBrush(3, shape = 'disc'))
   thresh_stack <- bwlabel(thresh_stack)
   
   display(thresh_stack, method = 'raster', all = T)  
@@ -288,7 +137,7 @@ system.time({
   
   # find centre of each fish object & write coords to file for each frame
   for(m in 1:dim(thresh_stack)[[3]]){
-    mf <- computeFeatures.moment(thresh_stack[,,m], blue_stack[,,m]) # calculate moment features  
+    mf <- computeFeatures.moment(thresh_stack[,,m], green_stack[,,m]) # calculate moment features  
     coords <- add_row(coords, frame = m+(start-1), fishpx = ifelse(is.matrix(get('mf')), round(mf[1,1]), NA), 
                       fishpy = ifelse(is.matrix(get('mf')), round(mf[1,2]), NA), 
                       errors = ifelse(is.matrix(get('mf')) == F, 'No fish', ifelse(nrow(mf) > 1, 'Noise', 'None')))
@@ -308,8 +157,7 @@ system.time({
   
   for(n in 1:dim(thresh_stack)[[3]]){
     overlay <- paintObjects(thresh_stack[,,n], mod_stack[,,,n], col = c('#ff00ff', '#ff00ff'), opac = c(1, 0), thick = T) # paint fish outline in purple
-    overlay <- paintObjects(model_stack[,,n], overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
-    overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = inrad, col = 'yellow', fill = F)
+    overlay <- paintObjects(nomask, overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
     overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = outrad, col = 'yellow', fill = F)
     writeImage(overlay, gsub('.jpg', '_tracked.png', files[n+(start-1)]))
   }
@@ -323,12 +171,10 @@ for(p in 1:dim(thresh_stack)[[3]]){
   
   if(coords[p,6] == 'Noise'){
     thresh_stack <- bwlabel(thresh_stack)
-    mf <- computeFeatures.moment(thresh_stack[,,p], blue_stack[,,p]) # calculate moment features 
+    mf <- computeFeatures.moment(thresh_stack[,,p], green_stack[,,p]) # calculate moment features 
     obj <- data.frame(object = rownames(mf), fish_x = round(mf[,'m.cx']), fish_y = round(mf[,'m.cy']))
     print(obj)
     print(paste0('Frame: ', coords[p, 1]))
-    #overlay <- paintObjects(thresh_stack[,,p], mod_stack[,,,p], col = c('#ff00ff', 'blue'), thick = T, closed = T, opac = c(1, 0))
-    #display(overlay) # display noisy image with colour labels
     readinteger('Enter oject number to keep: ') # input object number to keep. Enter '0' if all objects are not fish.
     if(num == 0){
       thresh_stack[,,p] <- rmObjects(thresh_stack[,,p], seq(1, nrow(mf), 1)) # remove all objects if fish not detected
@@ -336,13 +182,11 @@ for(p in 1:dim(thresh_stack)[[3]]){
       thresh_stack[,,p] <- rmObjects(thresh_stack[,,p], which(seq(1, nrow(mf), 1) != num)) # remove objects not fish
     }
     overlay <- paintObjects(thresh_stack[,,p], mod_stack[,,,p], col = c('#ff00ff', '#ff00ff'), opac = c(1, 0), thick = T)
-    overlay <- paintObjects(model_stack[,,p], overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
-    overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = inrad, col = 'yellow', fill = F)
+    overlay <- paintObjects(nomask, overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
     overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = outrad, col = 'yellow', fill = F)
     writeImage(overlay, gsub('.jpg', '_tracked.png', files[p+(start-1)]))
   } else {
     if(coords[p, 6] == 'No fish'){
-      #display(mod_stack[,,,p])
       print(paste0('Frame: ', coords[p, 1]))
       readinteger('Enter x coordinate of fish: ')
       fish <- num
@@ -351,8 +195,7 @@ for(p in 1:dim(thresh_stack)[[3]]){
       thresh_stack[fish[[1]], fish[[2]], p] <- 1
       thresh_stack[,,p] <- dilate(thresh_stack[,,p], makeBrush(15, shape = 'disc'))
       overlay <- paintObjects(thresh_stack[,,p], mod_stack[,,,p], col = c('#ff00ff', '#ff00ff'), opac = c(1, 0), thick = T)
-      overlay <- paintObjects(model_stack[,,p], overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
-      overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = inrad, col = 'yellow', fill = F)
+      overlay <- paintObjects(nomask, overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
       overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = outrad, col = 'yellow', fill = F)
       writeImage(overlay, gsub('.jpg', '_tracked.png', files[p+(start-1)]))
     }
@@ -366,7 +209,7 @@ mrem <- function(fnum){
   frame <- fnum-(start-1) # change to frame number to re-mark
   thresh_stack <- bwlabel(thresh_stack)
   while(frame > 0){
-    mf <- computeFeatures.moment(thresh_stack[,,frame], blue_stack[,,frame]) # calculate moment features  
+    mf <- computeFeatures.moment(thresh_stack[,,frame], green_stack[,,frame]) # calculate moment features  
     if(is.matrix(get('mf'))) {thresh_stack[,,frame] <- rmObjects(thresh_stack[,,frame], seq(1, nrow(mf), 1))} # remove all objects
     
     display(mod_stack[,,,frame])
@@ -384,8 +227,7 @@ mrem <- function(fnum){
     setwd(paste0(workingdir, '/Tracked'))
     
     overlay <- paintObjects(thresh_stack[,,frame], mod_stack[,,,frame], col = c('#ff00ff', '#ff00ff'), opac = c(1, 0), thick = T)
-    overlay <- paintObjects(model_stack[,,frame], overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
-    overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = inrad, col = 'yellow', fill = F)
+    overlay <- paintObjects(nomask, overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
     overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = outrad, col = 'yellow', fill = F)
     writeImage(overlay, gsub('.jpg', '_tracked.png', files[fnum]))
     
@@ -411,7 +253,7 @@ multif <- function(fstart, fend){
   fish <- c(fish, num)
   
   for(f in fstart:fend){
-    mf <- computeFeatures.moment(thresh_stack[,,f], blue_stack[,,f]) # calculate moment features  
+    mf <- computeFeatures.moment(thresh_stack[,,f], green_stack[,,f]) # calculate moment features  
     if(is.matrix(get('mf'))) {thresh_stack[,,f] <- rmObjects(thresh_stack[,,f], seq(1, nrow(mf), 1))} # remove all objects
     thresh_stack[fish[[1]], fish[[2]], f] <- 1
     thresh_stack[,,f] <- dilate(thresh_stack[,,f], makeBrush(15, shape = 'disc'))
@@ -420,8 +262,7 @@ multif <- function(fstart, fend){
     coords[f,3] <- fish[[2]]
     coords[f,6] <- 'None'
     overlay <- paintObjects(thresh_stack[,,f], mod_stack[,,,f], col = c('#ff00ff', '#ff00ff'), opac = c(1, 0), thick = T)
-    overlay <- paintObjects(model_stack[,,f], overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
-    overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = inrad, col = 'yellow', fill = F)
+    overlay <- paintObjects(nomask, overlay, col = c('light blue', 'light blue'), opac = c(1, 0), thick = T) # paint model outline in light blue
     overlay <- drawCircle(overlay, centre[[1]], centre[[2]], radius = outrad, col = 'yellow', fill = F)
     writeImage(overlay, gsub('.jpg', '_tracked.png', files[f+(start-1)]))
   }
@@ -434,48 +275,36 @@ multif <- function(fstart, fend){
 # 11. Recalculate coordinates after all errors fixed and models tracked-------------------------------
 system.time({
   thresh_stack <- bwlabel(thresh_stack)
-  model_stack <- bwlabel(model_stack)
-  #display(thresh_stack, method = 'raster', all = T)
-  
+
   # create coords list file
-  coords <- data.frame(frame = numeric(), fishpx = numeric(), fishpy = numeric(), distmod.pl = numeric(), distmod.pr = numeric(), errors = character())
+  coords <- data.frame(frame = numeric(), fish.px = numeric(), fish.py = numeric(), distno.p = numeric(), errors = character())
+  nopx <- as.data.frame(which(nomask == 1, arr.ind = T))
+  
   
   # find centre of each fish object & write coords to file for each frame
   for(m in 1:dim(thresh_stack)[[3]]){
-    #mf <- computeFeatures.moment(thresh_stack[,,m], blue_stack[,,m]) # calculate moment features  
-    
-    # extract left model
-    mf <- computeFeatures.moment(model_stack[,,m], rgb_stack[,,m])
-    mod.l <- rmObjects(model_stack[,,m], which(mf[,'m.cx'] > dim(model_stack)[[1]]/2))
-    mod.r <- rmObjects(model_stack[,,m], which(mf[,'m.cx'] < dim(model_stack)[[1]]/2))
     
     # get centre of fish coords
-    mf <- computeFeatures.moment(thresh_stack[,,m], rgb_stack[,,m])
+    mf <- computeFeatures.moment(thresh_stack[,,m], green_stack[,,m])
     fishpx <- c(round(mf[,'m.cx']), round(mf[,'m.cy']))
     
     # get min fish distance to left model
-    modpx.l <- as.data.frame(which(mod.l == 1, arr.ind = T))
-    modpx.l$dist <- round(sqrt(abs(fishpx[[1]]-modpx.l[,1])^2+abs(fishpx[[2]]-modpx.l[,2])^2))
+    nopx$dist <- round(sqrt(abs(fishpx[[1]]-nopx[,1])^2+abs(fishpx[[2]]-nopx[,2])^2))
     
-    # get min fish distance to right model
-    modpx.r <- as.data.frame(which(mod.r == 1, arr.ind = T))
-    modpx.r$dist <- round(sqrt(abs(fishpx[[1]]-modpx.r[,1])^2+abs(fishpx[[2]]-modpx.r[,2])^2))
-    
-    coords <- add_row(coords, frame = m+(start-1), fishpx = ifelse(is.matrix(get('mf')), round(mf[1,1]), NA), 
-                      fishpy = ifelse(is.matrix(get('mf')), round(mf[1,2]), NA),
-                      distmod.pl = min(modpx.l$dist),
-                      distmod.pr = min(modpx.r$dist),
+    coords <- add_row(coords, frame = m+(start-1), fish.px = ifelse(is.matrix(get('mf')), round(mf[1,1]), NA), 
+                      fish.py = ifelse(is.matrix(get('mf')), round(mf[1,2]), NA),
+                      distno.p = min(nopx$dist),
+                      #distmod.pr = min(modpx.r$dist),
                       errors = ifelse(is.matrix(get('mf')) == F, 'No fish', ifelse(nrow(mf) > 1, 'Noise', 'None')))
     
   }
   
   
   # convert pixel coordinates to mm coordinates
-  coords$fish.rx <- round(coords$fishpx * cfactor, 2)
-  coords$fish.ry <- round(coords$fishpy * cfactor, 2)
-  coords$distmod.rl <- round(coords$distmod.pl * cfactor, 2)
-  coords$distmod.rr <- round(coords$distmod.pr * cfactor, 2)
-  coords <- coords[,c(1, 2, 3, 4, 5, 7, 8, 9, 10, 6)]
+  coords$fish.rx <- round(coords$fish.px * cfactor, 2)
+  coords$fish.ry <- round(coords$fish.py * cfactor, 2)
+  coords$distno.r <- round(coords$distno.p * cfactor, 2)
+  coords <- coords[,c(1, 2, 3, 4, 6, 7, 8, 5)]
   
   
   write.csv(coords, paste0(inputfile, '_', start, '-', end, '.csv'), row.names = F)
