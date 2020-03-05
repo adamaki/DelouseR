@@ -1,9 +1,10 @@
 # Cleaner fish tank delousing
 # Adam Brooker 29th August 2019
 
-library(dplyr)
+
 library(ggplot2)
 library(plyr)
+library(dplyr)
 library(reshape2)
 library(stringr)
 library(colorspace)
@@ -14,6 +15,7 @@ library(cowplot)
 #library(Cairo)
 library(magick)
 library(colorRamps)
+library(forcats)
 
 # FUNCTIONS----------------------------------------------------------------------------------------------------
 
@@ -109,3 +111,116 @@ map.lice <- function(locations, maxlice, mvalues = T, sdvalues = T, leg = 'No. l
   salfig <<- plot_grid(salplot, liceleg, nrow = 2, ncol = 1, rel_heights = c(0.8, 0.2))
   liceleg <<- liceleg
 }
+
+
+# function to calculate fish headings from positions (outputs vector of fish headings)
+
+heading.func <- function(thresh){
+  
+  IDS <- unique(tdat$ID)
+  
+  headvec <- numeric()
+  
+  for (j in 1:length(IDS)){
+    
+    heading <- numeric()
+    diffx <- diff(tdat$fish.rx[tdat$ID == IDS[[j]]])
+    #diffx <- diff(tdat$fish.rx[1:10])
+    
+    diffy <- diff(tdat$fish.ry[tdat$ID == IDS[[j]]])
+    #diffy <- diff(tdat$fish.ry[1:10])
+    diffy <- diffy * -1 # switch sign to account for origin in top left and not bottom left of image
+    
+  for (i in 1:length(diffx)){
+    
+    if(diffx[[i]] != 0 & diffy[[i]] != 0){  
+    
+    #if(atan(diffy[[i]]/diffx[[i]]) > thresh | atan(diffy[[i]]/diffx[[i]]) < -thresh){
+    if(sqrt(diffx[[i]]^2+diffy[[i]]^2) > thresh | sqrt(diffx[[i]]^2+diffy[[i]]^2) < -thresh){
+      
+    if(diffx[[i]] > 0 & diffy[[i]] > 0) {
+      
+      heading <- c(heading, round((atan(diffy[[i]]/diffx[[i]]))*180/pi, 2))
+      
+    } else {
+      
+      if(diffx[[i]] > 0 & diffy[[i]] < 0) {
+        
+        heading <- c(heading, round(90+((atan((diffy[[i]]*-1)/diffx[[i]]))*180/pi), 2)) 
+        
+      } else {
+        
+        if(diffx[[i]] < 0 & diffy[[i]] < 0) {
+          
+          heading <- c(heading, round(270-((atan((diffy[[i]]*-1)/(diffx[[i]]*-1)))*180/pi), 2))
+          
+        } else {
+          
+          if(diffx[[i]] < 0 & diffy[[i]] > 0){
+            
+            heading <- c(heading, round(270+((atan(diffy[[i]]/(diffx[[i]]*-1)))*180/pi), 2)) 
+            
+          } 
+          
+        }
+        
+      }
+      
+    }
+      
+    } else { heading <- c(heading, NA) } 
+          
+    } else {
+      
+      if(diffx[[i]] == 0 & diffy[[i]] > thresh) {
+        
+        heading <- c(heading, 0)
+        
+      } else {
+        
+        if(diffx[[i]] > thresh & diffy[[i]] == 0) {
+          
+          heading <- c(heading, 90)
+          
+        } else {
+          
+          if(diffx[[i]] == 0 & diffy[[i]] < -thresh) {
+            
+            heading <- c(heading, 180)
+            
+          } else {
+            
+            if(diffx[[i]] < -thresh & diffy[[i]] == 0) {
+              
+              heading <- c(heading, 270)
+              
+            } else {
+              
+              heading <- c(heading, NA)
+              
+            }
+            
+          }
+          
+          
+        }
+        
+      }  
+      
+    }  
+    
+  }
+    
+    headvec <- c(headvec, NA, heading)
+    
+  }  
+  
+  headvec <<- headvec
+  
+}
+
+
+
+
+
+

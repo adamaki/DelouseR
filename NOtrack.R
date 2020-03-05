@@ -27,24 +27,24 @@ readinteger <- function(message = 'Not a number')
 
 # 1. Set working directory and input variables----------------------------
 
-workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse/C8-S' # change to location of data
+workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse/C12-S' # change to location of data
 setwd(workingdir)
 
-inputfile <- 'C8-S'
+inputfile <- 'C12-S'
 files <- list.files(path = workingdir, pattern = inputfile, all.files = FALSE, recursive = FALSE)
-start <- 306 # start frame number
-end <- 605 # end frame number
+start <- 303 # start frame number
+end <- 602 # end frame number
 rotangle <- -1 # image rotation angle to translate image to cartesian grid
-xrange <- c(167,504) # x-axis crop dimensions
-yrange <- c(12, 347) # y-axis crop dimensions
+xrange <- c(159,497) # x-axis crop dimensions
+yrange <- c(12, 349) # y-axis crop dimensions
 
 centre <- c(171, 169) # coords for centre of tank in cropped and rotated image
 outrad <- 169 # radius of tank mask in pixels
 cal1 <- c(3, 166) # location of 1st calibration marker in any image
 cal2 <- c(338, 166) # location of 2nd calibration marker in any image
 caldist <- 100 # real distance between calibration markers in cm
-nodims <- c(235, 166, 9) # dimensions of circle for novel object (x, y, r)
-rmask <- c(126, 155, 33, 69) # coordinates for masking light reflection (x1:x2, y1:y2)
+nodims <- c(237, 168, 9) # dimensions of circle for novel object (x, y, r)
+rmask <- c(128, 164, 34, 71) # coordinates for masking light reflection (x1:x2, y1:y2)
 
 # image testing to refine rotating and cropping
 test.img <- readImage(files[[350]])
