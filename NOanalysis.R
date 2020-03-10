@@ -106,6 +106,52 @@ tdat$eye <- ifelse(is.na(tdat$cmsec), NA, tdat$eye) # change 1st row of each fis
 
 tdat$move_eye <- ifelse(is.na(tdat$eye), NA, paste0(tdat$move, '_', tdat$eye)) # new column for moving and static left and right eye
 
+# Calculate percent lice reduction from starting number of lice at each time point
+
+reduc <- t3data %>%
+  group_by(time, tank) %>%
+  dplyr::summarise(start.m = sum(total.m), start.f = sum(total.f), start.t = sum(total.m + total.f)) %>%
+  filter(time == '0') %>%
+  ungroup() %>%
+  select(-time)
+
+reduc <- t3data %>%
+  group_by(time, tank) %>%
+  filter(time == '48') %>%
+  dplyr::summarise(m.48 = sum(total.m), f.48 = sum(total.f), t.48 = sum(total.m + total.f)) %>%
+  ungroup() %>%
+  select(-time) %>%
+  left_join(., reduc, by = 'tank')
+
+reduc <- t3data %>%
+  group_by(time, tank) %>%
+  filter(time == '96') %>%
+  dplyr::summarise(m.96 = sum(total.m), f.96 = sum(total.f), t.96 = sum(total.m + total.f)) %>%
+  ungroup() %>%
+  select(-time) %>%
+  left_join(., reduc, by = 'tank')
+
+reduc <- t3data %>%
+  group_by(time, tank) %>%
+  filter(time == '144') %>%
+  dplyr::summarise(m.144 = sum(total.m), f.144 = sum(total.f), t.144 = sum(total.m + total.f)) %>%
+  ungroup() %>%
+  select(-time) %>%
+  left_join(., reduc, by = 'tank')
+
+reduc <- reduc %>%
+  mutate(m.48 = round((m.48/start.m)*100), f.48 = round((f.48/start.f)*100), t.48 = round((t.48/start.t)*100),
+         m.96 = round((m.96/start.m)*100), f.96 = round((f.96/start.f)*100), t.96 = round((t.96/start.t)*100),
+         m.144 = round((m.144/start.m)*100), f.144 = round((f.144/start.f)*100), t.144 = round((t.144/start.t)*100))
+
+reduc <- dplyr::rename(reduc, ID = tank)
+
+tdat <- tdat %>%
+  left_join(., reduc[,c(1, 8, 9, 10, 5, 6, 7, 2, 3, 4)], by = 'ID') # add lice reduction columns to behaviour dataframe
+
+  
+
+# Plots=============================================================================
 
 # Plot fish tracks with tank and novel object outlines
 ggplot(data = tdat, aes(x = fish.rx, y = fish.ry)) +
@@ -163,16 +209,67 @@ tdat %>%
   stat_smooth(method = lm) +
   facet_wrap(~ID)
 
+# barplot of viewing moving and static time
 tdat %>%
   filter(!is.na(cmsec)) %>%
-  ggplot(aes(x = fct_reorder(ID, ab_code))) +
+  #ggplot(aes(x = fct_reorder(ID, ab_code))) +
+  ggplot(aes(x = fct_reorder(ID, t.144, .desc = T))) +
+  geom_bar(aes(fill = move)) +
+  geom_point(aes(y = t.144)) +
+  scale_y_continuous(name = 'secs', limits = c(0, 300), breaks = c(0, 60, 120, 180, 240, 300), expand = c(0, 0)) +
+  scale_x_discrete(name = 'fish ID') +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values = c("#AA5257", "#7D87B9"), labels = c('Moving', 'Static'))
+
+
+# barplot of viewing novel object with left or right eye
+tdat %>%
+  filter(!is.na(cmsec)) %>%
+  ggplot(aes(x = fct_reorder(ID, t.144, .desc = T))) +
+  geom_bar(aes(fill = eye)) +
+  scale_y_continuous(name = 'secs', limits = c(0, 300), breaks = c(0, 60, 120, 180, 240, 300), expand = c(0, 0)) +
+  scale_x_discrete(name = 'fish ID') +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values = c("#AA5257", "#8A1923"), labels = c('Left eye', 'Right eye'))
+
+
+# barplot of viewing novel object with left or right eye while static or moving
+tdat %>%
+  filter(!is.na(cmsec)) %>%
+  ggplot(aes(x = fct_reorder(ID, t.144, .desc = T))) +
   geom_bar(aes(fill = move_eye)) +
   scale_y_continuous(name = 'secs', limits = c(0, 300), breaks = c(0, 60, 120, 180, 240, 300), expand = c(0, 0)) +
   scale_x_discrete(name = 'fish ID') +
   theme(legend.title = element_blank()) +
   scale_fill_manual(values = c("#AA5257", "#8A1923", "#023FA5", "#7D87B9"), labels = c('Left eye, moving', 'Right eye, moving', 'Left eye, static', 'Right eye, static'))
 
+# barplot of viewing novel object with left or right eye while static
+tdat %>%
+  filter(!is.na(cmsec)) %>%
+  filter(move == 'S') %>%
+  group_by(ID, t.144) %>%
+  dplyr::count(move_eye) %>%
+  ggplot(aes(x = fct_reorder(ID, t.144, .desc = T), y = n)) +
+  geom_bar(aes(fill = move_eye), position = 'fill', stat = 'identity') +
+  scale_y_continuous(name = 'Time', expand = c(0, 0), labels = scales::percent_format()) +
+  scale_x_discrete(name = 'fish ID') +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values = c("#023FA5", "#7D87B9"), labels = c('Left eye, static', 'Right eye, static'))
 
+# barplot of viewing novel object with left or right eye while moving
+tdat %>%
+  filter(!is.na(cmsec)) %>%
+  filter(move == 'M') %>%
+  #group_by(ID, ab_code) %>%
+  group_by(ID, t.144) %>%
+  dplyr::count(move_eye) %>%
+  #ggplot(aes(x = fct_reorder(ID, ab_code), y = n)) +
+  ggplot(aes(x = fct_reorder(ID, t.144, .desc = T), y = n)) +
+  geom_bar(aes(fill = move_eye), position = 'fill', stat = 'identity') +
+  scale_y_continuous(name = 'Time', expand = c(0, 0), labels = scales::percent_format()) +
+  scale_x_discrete(name = 'fish ID') +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values = c("#AA5257", "#8A1923"), labels = c('Left eye, moving', 'Right eye, moving'))
 
 
 
