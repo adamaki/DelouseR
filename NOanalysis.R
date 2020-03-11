@@ -6,9 +6,19 @@
 
 library(tidyverse)
 
+source('/Users/adambrooker/R Projects/DelouseR/Delousing-initiate.R')
+
+t3data <- read.csv('/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse/DelousingTrial3-IndWrasse.csv') # Load lice data
+
+t3data <- t3data %>% mutate(total.m = t3data %>% rowwise() %>% select(contains('.m')) %>% rowSums()) # new total male col
+t3data <- t3data %>% mutate(total.f = t3data %>% rowwise() %>% select(contains('.f')) %>% rowSums()) # new total female col
+t3data$total <- t3data$total.m + t3data$total.f # new total lice col
+t3data$time <- dplyr::recode(t3data$time, '1' = 0, '2' = 48, '3' = 96, '4' = 144)
 
 
-workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse' # change to location of data
+#workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse' # change to location of data
+workingdir <- '/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse' # change to location of data
+
 setwd(workingdir)
 
 files <- list.files(path = workingdir, pattern = '.csv', all.files = FALSE, recursive = FALSE)
@@ -26,7 +36,7 @@ for(i in 1:length(files)){
  df$ID <- sub('\\-.*', '', files[i])
  
  tdat <- rbind(tdat, df)
- 
+ rm(df)
 }
 
 tdat$ID <- factor(tdat$ID, levels = c('C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C12')) # convert ID to factor
@@ -95,9 +105,9 @@ tdat$eye <- eye
 rm(eye)
 
 tdat <- tdat %>% 
-  group_by(ID) %>% 
-  fill(eye, dir, .direction = 'down') %>%
-  fill(eye, dir, .direction = 'up') # fill down direction and eye when fish not moving
+  dplyr::group_by(ID) %>% 
+  tidyr::fill(eye, dir, .direction = 'down') %>%
+  tidyr::fill(eye, dir, .direction = 'up') # fill down direction and eye when fish not moving
 
 tdat$eye <- ifelse(tdat$ID == 'C3', 'L', tdat$eye) # manually code left eye for fish C3 (static during NO test)
 
@@ -109,7 +119,7 @@ tdat$move_eye <- ifelse(is.na(tdat$eye), NA, paste0(tdat$move, '_', tdat$eye)) #
 # Calculate percent lice reduction from starting number of lice at each time point
 
 reduc <- t3data %>%
-  group_by(time, tank) %>%
+  dplyr::group_by(time, tank) %>%
   dplyr::summarise(start.m = sum(total.m), start.f = sum(total.f), start.t = sum(total.m + total.f)) %>%
   filter(time == '0') %>%
   ungroup() %>%
@@ -139,17 +149,84 @@ reduc <- t3data %>%
   select(-time) %>%
   left_join(., reduc, by = 'tank')
 
+# calculate percent reduction from lice at start
 reduc <- reduc %>%
   mutate(m.48 = round((m.48/start.m)*100), f.48 = round((f.48/start.f)*100), t.48 = round((t.48/start.t)*100),
          m.96 = round((m.96/start.m)*100), f.96 = round((f.96/start.f)*100), t.96 = round((t.96/start.t)*100),
          m.144 = round((m.144/start.m)*100), f.144 = round((f.144/start.f)*100), t.144 = round((t.144/start.t)*100))
 
 reduc <- dplyr::rename(reduc, ID = tank)
+reduc$ID <- factor(reduc$ID, levels = c('C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C12')) # convert ID to factor
+reduc <- select(reduc, 1:10)
 
 tdat <- tdat %>%
   left_join(., reduc[,c(1, 8, 9, 10, 5, 6, 7, 2, 3, 4)], by = 'ID') # add lice reduction columns to behaviour dataframe
 
+# Calculate summary dataset for PCA and correlation analysis----------------------------------------
+
+bsum <- reduc[,c(1, 8, 9, 10, 5, 6, 7, 2, 3, 4)]
+bsum <- arrange(bsum, ID)
+
+# summarise novel object distance and velocity and add to summary dataframe
+bsum <- tdat %>%
+  group_by(ID) %>%
+  dplyr::summarise(NO.dist.mean = round(mean(distno.r, na.rm = T), 2),
+            NO.dist.min = round(min(distno.r, na.rm = T), 2),
+            vel.mean = round(mean(cmsec, na.rm = T), 2),
+            vel.max = round(max(cmsec, na.rm = T), 2)) %>%
+  select(ID, NO.dist.mean, NO.dist.min, vel.mean, vel.max) %>%
+  left_join(bsum, ., by = 'ID')
   
+# summarise movement variables and add to summary dataframe
+bsum <- tdat %>%
+  group_by(ID) %>%
+  count(move, name = 't.move') %>%
+  filter(move == 'M') %>%
+  select (ID, t.move) %>%
+  left_join(bsum, ., by = 'ID') %>%
+  mutate(t.move = tidyr::replace_na(t.move, 0))
+  
+bsum <- tdat %>%
+  group_by(ID) %>%
+  count(move, name = 't.static') %>%
+  filter(move == 'S') %>%
+  select (ID, t.static) %>%
+  left_join(bsum, ., by = 'ID') %>%
+  mutate(t.static = tidyr::replace_na(t.static, 0))
+
+# count bouts and add summary data to bsum
+for(i in 1:length(unique(tdat$ID))){
+  
+  mvec <- tdat$move[tdat$ID == unique(tdat$ID)[[i]]]
+  mvec <- mvec[!is.na(mvec)]
+  
+  
+  
+  
+}
+
+
+
+
+
+# summarise eye variables and add to summary dataframe
+bsum <- tdat %>%
+  group_by(ID) %>%
+  count(eye, name = 'eye.l') %>%
+  filter(eye == 'L') %>%
+  select (ID, eye.l) %>%
+  left_join(bsum, ., by = 'ID') %>%
+  mutate(eye.l = tidyr::replace_na(eye.l, 0))
+
+bsum <- tdat %>%
+  group_by(ID) %>%
+  count(eye, name = 'eye.r') %>%
+  filter(eye == 'R') %>%
+  select (ID, eye.r) %>%
+  left_join(bsum, ., by = 'ID') %>%
+  mutate(eye.r = tidyr::replace_na(eye.r, 0))
+
+
 
 # Plots=============================================================================
 
