@@ -6,9 +6,11 @@
 
 library(tidyverse)
 
-source('/Users/adambrooker/R Projects/DelouseR/Delousing-initiate.R')
+#source('/Users/adambrooker/R Projects/DelouseR/Delousing-initiate.R')
+source('G:/Projects/Lumpfish delousing/Delousing-initiate.R')
 
-t3data <- read.csv('/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse/DelousingTrial3-IndWrasse.csv') # Load lice data
+#t3data <- read.csv('/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse/DelousingTrial3-IndWrasse.csv') # Load lice data
+t3data <- read.csv('G:/Projects/Lumpfish delousing/Data/T3 Individual Wrasse/DelousingTrial3-IndWrasse.csv') # Load lice data
 
 t3data <- t3data %>% mutate(total.m = t3data %>% rowwise() %>% select(contains('.m')) %>% rowSums()) # new total male col
 t3data <- t3data %>% mutate(total.f = t3data %>% rowwise() %>% select(contains('.f')) %>% rowSums()) # new total female col
@@ -16,8 +18,8 @@ t3data$total <- t3data$total.m + t3data$total.f # new total lice col
 t3data$time <- dplyr::recode(t3data$time, '1' = 0, '2' = 48, '3' = 96, '4' = 144)
 
 
-#workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse' # change to location of data
-workingdir <- '/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse' # change to location of data
+workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse' # change to location of data
+#workingdir <- '/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse' # change to location of data
 
 setwd(workingdir)
 
@@ -180,7 +182,7 @@ bsum <- tdat %>%
 # summarise movement variables and add to summary dataframe
 bsum <- tdat %>%
   group_by(ID) %>%
-  count(move, name = 't.move') %>%
+  dplyr::count(move, name = 't.move') %>%
   filter(move == 'M') %>%
   select (ID, t.move) %>%
   left_join(bsum, ., by = 'ID') %>%
@@ -188,20 +190,55 @@ bsum <- tdat %>%
   
 bsum <- tdat %>%
   group_by(ID) %>%
-  count(move, name = 't.static') %>%
+  dplyr::count(move, name = 't.static') %>%
   filter(move == 'S') %>%
   select (ID, t.static) %>%
   left_join(bsum, ., by = 'ID') %>%
   mutate(t.static = tidyr::replace_na(t.static, 0))
 
 # count bouts and add summary data to bsum
+
+bout.df <- data.frame(ID = factor(), n.s = numeric(), n.m = numeric(), m.s = numeric(), m.m = numeric())
+
 for(i in 1:length(unique(tdat$ID))){
   
   mvec <- tdat$move[tdat$ID == unique(tdat$ID)[[i]]]
   mvec <- mvec[!is.na(mvec)]
+  mvec <- data.frame('move' = mvec, 'bout' = rep(NA, length(mvec)))
   
+  mvec[1,'bout'] <- 1
   
+  # add bout length column
+  for(j in 2:nrow(mvec)){
+    
+    if(mvec[j,'move'] == mvec[j-1,'move'])
+    {
+      mvec[j,'bout'] <- mvec[j-1,'bout'] + 1
+    } else {
+        mvec[j,'bout'] <- 1
+      }
+  }
   
+  # calculate number of static bouts
+  if(mvec[1,'move'] ==  'S'){
+    n.s <- floor((sum(diff(mvec$bout) != 1))/2) + 1
+  } else{
+    n.s <- floor((sum(diff(mvec$bout) != 1))/2)
+  }
+  
+  # calculate number of moving bouts
+  if(mvec[1,'move'] ==  'M'){
+    n.m <- floor((sum(diff(mvec$bout) != 1))/2) + 1
+  } else{
+    n.m <- floor((sum(diff(mvec$bout) != 1))/2)
+  }
+  
+  m.s <- round(nrow(mvec[mvec$move == 'S',])/n.s, 2) # calculate mean length of static bount
+  m.m <- round(nrow(mvec[mvec$move == 'M',])/n.m, 2) # calculate mean length of moving bout
+  
+  bout.df <- add_row(bout.df, ID = unique(tdat$ID)[i], n.s = n.s, n.m = n.m, m.s = m.s, m.m = m.m)
+  bout.df$m.s[is.nan(bout.df$m.s)] <- 0
+  bout.df$m.m[is.nan(bout.df$m.m)] <- 0
   
 }
 
