@@ -6,11 +6,11 @@
 
 library(tidyverse)
 
-#source('/Users/adambrooker/R Projects/DelouseR/Delousing-initiate.R')
-source('G:/Projects/Lumpfish delousing/Delousing-initiate.R')
+source('/Users/adambrooker/R Projects/DelouseR/Delousing-initiate.R')
+#source('G:/Projects/Lumpfish delousing/Delousing-initiate.R')
 
-#t3data <- read.csv('/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse/DelousingTrial3-IndWrasse.csv') # Load lice data
-t3data <- read.csv('G:/Projects/Lumpfish delousing/Data/T3 Individual Wrasse/DelousingTrial3-IndWrasse.csv') # Load lice data
+t3data <- read.csv('/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse/DelousingTrial3-IndWrasse.csv') # Load lice data
+#t3data <- read.csv('G:/Projects/Lumpfish delousing/Data/T3 Individual Wrasse/DelousingTrial3-IndWrasse.csv') # Load lice data
 
 t3data <- t3data %>% mutate(total.m = t3data %>% rowwise() %>% select(contains('.m')) %>% rowSums()) # new total male col
 t3data <- t3data %>% mutate(total.f = t3data %>% rowwise() %>% select(contains('.f')) %>% rowSums()) # new total female col
@@ -18,12 +18,12 @@ t3data$total <- t3data$total.m + t3data$total.f # new total lice col
 t3data$time <- dplyr::recode(t3data$time, '1' = 0, '2' = 48, '3' = 96, '4' = 144)
 
 
-workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse' # change to location of data
-#workingdir <- '/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse' # change to location of data
+#workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse' # change to location of data
+workingdir <- '/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse' # change to location of data
 
 setwd(workingdir)
 
-files <- list.files(path = workingdir, pattern = '.csv', all.files = FALSE, recursive = FALSE)
+files <- list.files(path = workingdir, pattern = 'C.*.csv', all.files = FALSE, recursive = FALSE)
 
 
 # Read behaviour files into one dataframe
@@ -196,9 +196,9 @@ bsum <- tdat %>%
   left_join(bsum, ., by = 'ID') %>%
   mutate(t.static = tidyr::replace_na(t.static, 0))
 
-# count bouts and add summary data to bsum
+# count movement bouts and add summary data to bsum
 
-bout.df <- data.frame(ID = factor(), n.s = numeric(), n.m = numeric(), m.s = numeric(), m.m = numeric())
+bout.df <- data.frame(ID = factor(), bout.n.s = numeric(), bout.n.m = numeric(), bout.m.s = numeric(), bout.m.m = numeric())
 
 for(i in 1:length(unique(tdat$ID))){
   
@@ -236,20 +236,20 @@ for(i in 1:length(unique(tdat$ID))){
   m.s <- round(nrow(mvec[mvec$move == 'S',])/n.s, 2) # calculate mean length of static bount
   m.m <- round(nrow(mvec[mvec$move == 'M',])/n.m, 2) # calculate mean length of moving bout
   
-  bout.df <- add_row(bout.df, ID = unique(tdat$ID)[i], n.s = n.s, n.m = n.m, m.s = m.s, m.m = m.m)
-  bout.df$m.s[is.nan(bout.df$m.s)] <- 0
-  bout.df$m.m[is.nan(bout.df$m.m)] <- 0
+  bout.df <- add_row(bout.df, ID = unique(tdat$ID)[i], bout.n.s = n.s, bout.n.m = n.m, bout.m.s = m.s, bout.m.m = m.m)
+  bout.df$bout.m.s[is.nan(bout.df$bout.m.s)] <- 0
+  bout.df$bout.m.m[is.nan(bout.df$bout.m.m)] <- 0
   
 }
 
-
-
+bsum <- bsum %>% left_join(bout.df, by = 'ID')
+rm(bout.df)
 
 
 # summarise eye variables and add to summary dataframe
 bsum <- tdat %>%
   group_by(ID) %>%
-  count(eye, name = 'eye.l') %>%
+  dplyr::count(eye, name = 'eye.l') %>%
   filter(eye == 'L') %>%
   select (ID, eye.l) %>%
   left_join(bsum, ., by = 'ID') %>%
@@ -257,11 +257,63 @@ bsum <- tdat %>%
 
 bsum <- tdat %>%
   group_by(ID) %>%
-  count(eye, name = 'eye.r') %>%
+  dplyr::count(eye, name = 'eye.r') %>%
   filter(eye == 'R') %>%
   select (ID, eye.r) %>%
   left_join(bsum, ., by = 'ID') %>%
   mutate(eye.r = tidyr::replace_na(eye.r, 0))
+
+
+# count eye bouts and add summary to bsum dataframe
+
+bout.df <- data.frame(ID = factor(), bout.n.l = numeric(), bout.n.r = numeric(), bout.m.l = numeric(), bout.m.r = numeric())
+
+for(i in 1:length(unique(tdat$ID))){
+  
+  mvec <- tdat$eye[tdat$ID == unique(tdat$ID)[[i]]]
+  mvec <- mvec[!is.na(mvec)]
+  mvec <- data.frame('eye' = mvec, 'bout' = rep(NA, length(mvec)))
+  
+  mvec[1,'bout'] <- 1
+  
+  # add bout length column
+  for(j in 2:nrow(mvec)){
+    
+    if(mvec[j,'eye'] == mvec[j-1,'eye'])
+    {
+      mvec[j,'bout'] <- mvec[j-1,'bout'] + 1
+    } else {
+      mvec[j,'bout'] <- 1
+    }
+  }
+  
+  # calculate number of left eye bouts
+  if(mvec[1,'eye'] ==  'L'){
+    n.l <- floor((sum(diff(mvec$bout) != 1))/2) + 1
+  } else{
+    n.l <- floor((sum(diff(mvec$bout) != 1))/2)
+  }
+  
+  # calculate number of right eye bouts
+  if(mvec[1,'eye'] ==  'R'){
+    n.r <- floor((sum(diff(mvec$bout) != 1))/2) + 1
+  } else{
+    n.r <- floor((sum(diff(mvec$bout) != 1))/2)
+  }
+  
+  m.l <- round(nrow(mvec[mvec$eye == 'L',])/n.l, 2) # calculate mean length of static bount
+  m.r <- round(nrow(mvec[mvec$eye == 'R',])/n.r, 2) # calculate mean length of moving bout
+  
+  bout.df <- add_row(bout.df, ID = unique(tdat$ID)[i], bout.n.l = n.l, bout.n.r = n.r, bout.m.l = m.l, bout.m.r = m.r)
+  bout.df$bout.m.l[is.nan(bout.df$bout.m.l)] <- 0
+  bout.df$bout.m.r[is.nan(bout.df$bout.m.r)] <- 0
+  
+}
+
+bsum <- bsum %>% left_join(bout.df, by = 'ID')
+rm(bout.df)
+
+
 
 
 
