@@ -313,7 +313,34 @@ for(i in 1:length(unique(tdat$ID))){
 bsum <- bsum %>% left_join(bout.df, by = 'ID')
 rm(bout.df)
 
+# Correlogram analysis
+library(corrgram)
 
+cor.df <- bsum %>% select(m.144, f.144, t.144, NO.dist.min, vel.mean, t.move, bout.n.m, bout.m.m, eye.l, bout.n.l, bout.m.l)
+
+corrgram(cor.df, order = T, lower.panel = panel.shade, upper.panel = NULL, abs = F)
+corrgram(bsum[,c(1:16)], order = T, lower.panel = panel.ellipse, upper.panel = panel.pts)
+corrgram(bsum[,c(1:10, 17:26)], order = T, lower.panel = panel.ellipse, upper.panel = panel.pts)
+
+# principal component analysis
+library(factoextra)
+
+data(decathlon2) # use example dataset
+decathlon2.active <- decathlon2[1:23, 1:10]
+
+pca.df <- bsum %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(10:25) # select wrasse behaviour data for pca
+pca.df <- bsum %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(NO.dist.min, vel.mean, t.move, bout.n.m, bout.m.m, eye.l, bout.n.l, bout.m.l)
+
+
+res.pca <- prcomp(pca.df, scale = T) # PCA calculation
+fviz_eig(res.pca) # eigen value plot
+fviz_pca_ind(res.pca, axes = c(2, 3), col.ind = groups, habillage = as.factor(pull(round(bsum[,8], -1))),  repel = T) # individual PCA plot
+fviz_pca_var(res.pca, col.var = 'contrib', gradient.cols = c('#00AFBB', '#E7B800', '#FC4E07'), repel = T) # variables plot
+fviz_pca_biplot(res.pca, repel = T, col.var = '#2E9FDF', col.ind = '#696969') # bipot of individuals and variables
+
+eig.val <- get_eigenvalue(res.pca) # extract eigenvalues from pca object
+res.var <- get_pca_var(res.pca) # extract variable coordinates from pca object
+res.ind <- get_pca_ind(res.pca) # extract individual coordinates from pca object
 
 
 
