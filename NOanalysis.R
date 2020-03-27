@@ -198,7 +198,7 @@ bsum <- tdat %>%
 
 # count movement bouts and add summary data to bsum
 
-bout.df <- data.frame(ID = factor(), bout.n.s = numeric(), bout.n.m = numeric(), bout.m.s = numeric(), bout.m.m = numeric())
+bout.df <- data.frame(ID = factor(), bout.n.s = numeric(), bout.n.m = numeric(), bout.m.s = numeric(), bout.m.m = numeric(), move.1 = numeric())
 
 for(i in 1:length(unique(tdat$ID))){
   
@@ -236,7 +236,19 @@ for(i in 1:length(unique(tdat$ID))){
   m.s <- round(nrow(mvec[mvec$move == 'S',])/n.s, 2) # calculate mean length of static bount
   m.m <- round(nrow(mvec[mvec$move == 'M',])/n.m, 2) # calculate mean length of moving bout
   
-  bout.df <- add_row(bout.df, ID = unique(tdat$ID)[i], bout.n.s = n.s, bout.n.m = n.m, bout.m.s = m.s, bout.m.m = m.m)
+  # calculate time of first movement
+  
+  if(length(unique(mvec$move)) > 1){
+    if(mvec[1,'move'] ==  'M'){
+      m.1 <- 1
+    } else{
+      m.1 <- which(diff(mvec$bout) != 1)[[1]]
+    }
+  } else {
+    m.1 <- 0 
+  }  
+  
+  bout.df <- add_row(bout.df, ID = unique(tdat$ID)[i], bout.n.s = n.s, bout.n.m = n.m, bout.m.s = m.s, bout.m.m = m.m, move.1 = m.1)
   bout.df$bout.m.s[is.nan(bout.df$bout.m.s)] <- 0
   bout.df$bout.m.m[is.nan(bout.df$bout.m.m)] <- 0
   
@@ -313,28 +325,32 @@ for(i in 1:length(unique(tdat$ID))){
 bsum <- bsum %>% left_join(bout.df, by = 'ID')
 rm(bout.df)
 
-# Correlogram analysis
+# Correlogram analysis-----------------------------------
 library(corrgram)
 
-cor.df <- bsum %>% select(m.144, f.144, t.144, NO.dist.min, vel.mean, t.move, bout.n.m, bout.m.m, eye.l, bout.n.l, bout.m.l)
+cor.df <- bsum %>% select(m.144, f.144, t.144, NO.dist.min, vel.mean, t.move, bout.n.m, bout.m.m, eye.l, bout.n.l, bout.m.l, move.1)
 
-corrgram(cor.df, order = T, lower.panel = panel.shade, upper.panel = NULL, abs = F)
+corrgram(cor.df, order = F, lower.panel = panel.shade, upper.panel = NULL, abs = F)
 corrgram(bsum[,c(1:16)], order = T, lower.panel = panel.ellipse, upper.panel = panel.pts)
 corrgram(bsum[,c(1:10, 17:26)], order = T, lower.panel = panel.ellipse, upper.panel = panel.pts)
 
 # principal component analysis
 library(factoextra)
 
-data(decathlon2) # use example dataset
-decathlon2.active <- decathlon2[1:23, 1:10]
+pca.df <- bsum %>% filter(ID != 'C3') # remove C3 as didn't move in behaviour test
 
-pca.df <- bsum %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(10:25) # select wrasse behaviour data for pca
-pca.df <- bsum %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(NO.dist.min, vel.mean, t.move, bout.n.m, bout.m.m, eye.l, bout.n.l, bout.m.l)
+pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(10:26) # select wrasse behaviour data for pca
+pca.df <- pca.df%>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(NO.dist.min, vel.mean, t.move, bout.n.m, bout.m.m, eye.l, bout.n.l, bout.m.l, move.1)
+pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(NO.dist.min, vel.mean, t.move, eye.l, move.1)
 
+
+delouse.groups <- pull(round(bsum[,10], -1))[-2] # colour by all lice delousing
 
 res.pca <- prcomp(pca.df, scale = T) # PCA calculation
 fviz_eig(res.pca) # eigen value plot
-fviz_pca_ind(res.pca, axes = c(2, 3), col.ind = groups, habillage = as.factor(pull(round(bsum[,8], -1))),  repel = T) # individual PCA plot
+fviz_pca_ind(res.pca, axes = c(1, 7), geom = c('point', 'text'), palette = c('blue', 'red'),  habillage = delouse.groups,  pointshape = 19, repel = T) # individual PCA plot
+fviz_pca_biplot(res.pca, axes = c(1, 2), geom = c('point', 'text'), palette = 'RdBu',  habillage = delouse.groups,  pointshape = 19, repel = T) # individual PCA plot
+fviz_pca_ind(res.pca, axes = c(2, 3), geom = c('point', 'text'), palette = 'RdBu',  habillage = delouse.groups,  pointshape = 19, repel = T) # individual PCA plot
 fviz_pca_var(res.pca, col.var = 'contrib', gradient.cols = c('#00AFBB', '#E7B800', '#FC4E07'), repel = T) # variables plot
 fviz_pca_biplot(res.pca, repel = T, col.var = '#2E9FDF', col.ind = '#696969') # bipot of individuals and variables
 
@@ -342,7 +358,35 @@ eig.val <- get_eigenvalue(res.pca) # extract eigenvalues from pca object
 res.var <- get_pca_var(res.pca) # extract variable coordinates from pca object
 res.ind <- get_pca_ind(res.pca) # extract individual coordinates from pca object
 
+# PCA sandpit------------------------
 
+# https://www.r-bloggers.com/using-r-two-plots-of-principal-component-analysis/
+
+pca.df <- bsum %>% filter(ID != 'C3')
+pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(10:26) 
+res.pca <- prcomp(pca.df, scale = T) 
+
+pca.melt <- melt(res.pca$rotation)
+
+loading.plot <- ggplot(data = pca.melt) +
+  geom_bar(aes(x = Var1, y = value, fill = Var1), stat = 'identity') +
+  facet_wrap(~Var2)
+
+# https://www.data-imaginist.com/2019/a-flurry-of-facets/
+
+library(ggforce)
+
+pca.df <- bsum %>% filter(ID != 'C3')
+pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(10:26) 
+res.pca <- prcomp(pca.df, scale = T) 
+pc.df <- as.data.frame(res.pca$x)
+
+delouse.groups <- pull(round(bsum[,10], -1))[-2] # colour by all lice delousing
+
+pca.facet <- ggplot(pc.df, aes(x = .panel_x, y = .panel_y, colour = rep(delouse.groups, 81))) +
+  geom_point(alpha = 1, shape = 16, size = 2) +
+  facet_matrix(vars(everything())) +
+  scale_color_gradient(low = 'blue', high = 'red')
 
 # Plots=============================================================================
 
