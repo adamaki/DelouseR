@@ -2,9 +2,12 @@
 # Adam Brooker 29th August 2019
 
 source('G:/Projects/Lumpfish delousing/Delousing-initiate.R')
+source('/Users/adambrooker/R Projects/DelouseR/Delousing-initiate.R')
 
-# Load and reformat T2 cryptic lice trial ---------------------------------------
-setwd('G:/Projects/Lumpfish delousing/Data/T3 Individual Wrasse')
+
+# Load and reformat T3 cryptic lice trial ---------------------------------------
+setwd('/Users/adambrooker/Dropbox/1-IoA/cleanerfish/Projects/SAIC Lumpfish/Delousing Trials/T3 Individual Wrasse')
+
 
 t3data <- read.csv('DelousingTrial3-IndWrasse.csv')
 
@@ -16,6 +19,7 @@ t3data <- t3data %>% mutate(total.m = t3data %>% rowwise() %>% select(contains('
 t3data <- t3data %>% mutate(total.f = t3data %>% rowwise() %>% select(contains('.f')) %>% rowSums()) # new total female col
 
 t3data$total <- t3data$total.m + t3data$total.f
+t3data$tank <- factor(t3data$tank, levels = c('C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C12')) # convert ID to factor
 
 
 # melt data into long format--------------------------------------------------------------------------------------------------
@@ -45,6 +49,8 @@ t3melt$time <- as.factor(t3melt$time)
 t3melt$location <- factor(t3melt$location, levels(t3melt$location)[c(7, 1, 2, 3, 4, 5, 6, 9, 10, 11, 8)])
 t3melt$total <- t3melt$male + t3melt$female
 rm(males, females)
+
+
 
 # summarise data and barplot No. of lice by time and location----------------------------------------------------------------------
 t3locsum <- t3melt %>%
@@ -93,13 +99,14 @@ t3summ <- t3data %>%
   group_by(time, tank, replicate) %>%
   dplyr::summarise(m_m = mean(total.m), sd_m = sd(total.m), m_f = mean(total.f), sd_f = sd(total.f), tot_m = mean(total.m + total.f), tot_sd = sd(total.m + total.f))
 
+t3summ$tank <- factor(t3summ$tank, levels = c('C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C12')) # convert ID to factor
 t3summ$replicate <- as.factor(t3summ$replicate)
 
 # summarise by time and group with rep as error and draw plot of total lice
 totliceplot <- t3summ %>%
   #group_by(time, replicate) %>%
   #dplyr::summarise(mean_m = mean(m_m), sd_m = sd(m_m), mean_f = mean(m_f), sd_f = sd(m_f), total_mean = mean(tot_m), total_sd = sd(tot_m)) %>%
-  ggplot(aes(x = time, y = tot_m, colour = replicate)) +
+  ggplot(aes(x = time, y = tot_m, colour = tank)) +
   geom_line(size = 1) +
   geom_errorbar(aes(x = time, ymin = tot_m-tot_sd, ymax = tot_m+tot_sd), width = 3, position = 'dodge', size = 1) +
   scale_y_continuous(limits = c(0, 12), name = 'mean lice per fish', expand = c(0, 0)) +
@@ -112,10 +119,10 @@ totliceplot <- t3summ %>%
 totmaleplot <- t3summ %>%
   #group_by(time, treatment) %>%
   #dplyr::summarise(mean_m = mean(m_m), sd_m = sd(m_m), mean_f = mean(m_f), sd_f = sd(m_f), total_mean = mean(tot_m), total_sd = sd(tot_m)) %>%
-  ggplot(aes(x = time, y = m_m, colour = replicate)) +
+  ggplot(aes(x = time, y = m_m, colour = tank)) +
   geom_line(size = 1) +
   geom_errorbar(aes(x = time, ymin = m_m-sd_m, ymax = m_m+sd_m), width = 3, position = 'dodge', size = 1) +
-  scale_y_continuous(limits = c(0, 6), name = 'mean lice per fish', expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 8), name = 'mean lice per fish', expand = c(0, 0)) +
   scale_x_continuous(breaks = c(0, 48, 96, 144), labels = c('0', '48', '96', '144'), name = 'Time (h)', expand = c(0, 0)) +
   ggtitle('Male lice') +
   theme_classic() #+
@@ -126,10 +133,10 @@ totmaleplot <- t3summ %>%
 totfemaleplot <- t3summ %>%
   #group_by(time, treatment) %>%
   #dplyr::summarise(mean_m = mean(m_m), sd_m = sd(m_m), mean_f = mean(m_f), sd_f = sd(m_f), total_mean = mean(tot_m), total_sd = sd(tot_m)) %>%
-  ggplot(aes(x = time, y = m_f, colour = replicate)) +
+  ggplot(aes(x = time, y = m_f, colour = tank)) +
   geom_line(size = 1) +
   geom_errorbar(aes(x = time, ymin = m_f-sd_f, ymax = m_f+sd_f), width = 3, position = 'dodge', size = 1) +
-  scale_y_continuous(limits = c(0, 7), name = 'mean lice per fish', expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 8), name = 'mean lice per fish', expand = c(0, 0)) +
   scale_x_continuous(breaks = c(0, 48, 96, 144), labels = c('0', '48', '96', '144'), name = 'Time (h)', expand = c(0, 0)) +
   ggtitle('Female lice') +
   theme_classic() #+
@@ -198,7 +205,7 @@ dplot.f <- t3data %>%
   geom_bar(position = 'fill', stat = 'count') +
   scale_x_discrete(name = 'Time (h)', expand = c(0, 0)) +
   scale_y_continuous(name = 'Proportion', expand = c(0, 0)) +
-  facet_wrap(~replicate, nrow = 2, ncol = 5) +
+  facet_wrap(~tank, nrow = 2, ncol = 5) +
   scale_fill_manual(values = delousepal, name = '% female lice \n remaining') +
   theme_classic() +
   ggtitle('Delousing rates - female lice')
@@ -209,7 +216,7 @@ dplot.m <- t3data %>%
   geom_bar(position = 'fill', stat = 'count') +
   scale_x_discrete(name = 'Time (h)', expand = c(0, 0)) +
   scale_y_continuous(name = 'Proportion', expand = c(0, 0)) +
-  facet_wrap(~replicate, nrow = 2, ncol = 5) +
+  facet_wrap(~tank, nrow = 2, ncol = 5) +
   scale_fill_manual(values = delousepal, name = '% male lice \n remaining') +
   theme_classic() +
   ggtitle('Delousing rates - male lice')
@@ -220,7 +227,7 @@ dplot.t <- t3data %>%
   geom_bar(position = 'fill', stat = 'count') +
   scale_x_discrete(name = 'Time (h)', expand = c(0, 0)) +
   scale_y_continuous(name = 'Proportion', expand = c(0, 0)) +
-  facet_wrap(~replicate, nrow = 2, ncol = 5) +
+  facet_wrap(~tank, nrow = 2, ncol = 5) +
   scale_fill_manual(values = delousepal, name = '% all lice \n remaining') +
   theme_classic() +
   ggtitle('Delousing rates - all lice')

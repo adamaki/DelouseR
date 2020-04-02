@@ -169,14 +169,18 @@ tdat <- tdat %>%
 bsum <- reduc[,c(1, 8, 9, 10, 5, 6, 7, 2, 3, 4)]
 bsum <- arrange(bsum, ID)
 
+bsum$ability <- recode(bsum$ID, !!!delouse_key) # add delousing ability column
+bsum$ability <- factor(bsum$ability, levels = c('Excellent', 'Good', 'Poor', 'None')) # code delousing ability
+
 # summarise novel object distance and velocity and add to summary dataframe
 bsum <- tdat %>%
   group_by(ID) %>%
   dplyr::summarise(NO.dist.mean = round(mean(distno.r, na.rm = T), 2),
             NO.dist.min = round(min(distno.r, na.rm = T), 2),
             vel.mean = round(mean(cmsec, na.rm = T), 2),
-            vel.max = round(max(cmsec, na.rm = T), 2)) %>%
-  select(ID, NO.dist.mean, NO.dist.min, vel.mean, vel.max) %>%
+            vel.max = round(max(cmsec, na.rm = T), 2),
+            tot.dist = round((sum(cmsec, na.rm = T))/100, 2)) %>%
+  select(ID, NO.dist.mean, NO.dist.min, vel.mean, vel.max, tot.dist) %>%
   left_join(bsum, ., by = 'ID')
   
 # summarise movement variables and add to summary dataframe
@@ -328,11 +332,38 @@ rm(bout.df)
 # Correlogram analysis-----------------------------------
 library(corrgram)
 
-cor.df <- bsum %>% select(m.144, f.144, t.144, NO.dist.min, vel.mean, t.move, bout.n.m, bout.m.m, eye.l, bout.n.l, bout.m.l, move.1)
+cor.df <- bsum %>% 
+  select(m.144, f.144, t.144, NO.dist.min, NO.dist.mean, vel.mean, vel.max, tot.dist, t.move, t.static, bout.n.s, bout.n.m, bout.m.s, bout.m.m, move.1, eye.l, eye.r, bout.n.l, bout.n.r, bout.m.l, bout.m.r)
 
-corrgram(cor.df, order = F, lower.panel = panel.shade, upper.panel = NULL, abs = F)
+labs <- c('M lice', 'F lice', 'Tot lice', 'Min dist to NO', 'Mean dist to NO', 'Mean velocity', 'Max velocity', 'Total dist', 'Time moving', 
+          'Time static', 'No. static bouts', 'No. moving bouts', 'Mean length static bouts', 'Mean length moving bouts', '1st movement', 
+          'left eye NO', 'right eye NO', 'No. left eye bouts', 'No. right eye bouts', 'Mean length left eye bouts', 'Mean length right eye bouts')
+
+corrgram(cor.df, order = F, lower.panel = panel.shade, upper.panel = NULL, abs = F,
+         outer.labels = list(bottom = list(labels = labs, cex = 1.5, srt = 90), left = list(labels = labs, cex = 1.5, srt = 0))
+        )
 corrgram(bsum[,c(1:16)], order = T, lower.panel = panel.ellipse, upper.panel = panel.pts)
 corrgram(bsum[,c(1:10, 17:26)], order = T, lower.panel = panel.ellipse, upper.panel = panel.pts)
+
+library(corrplot)
+
+cor.df <-
+  #select(m.144, f.144, t.144, NO.dist.min, NO.dist.mean, vel.mean, vel.max, tot.dist, t.move, t.static, bout.n.s, bout.n.m, bout.m.s, bout.m.m, move.1, eye.l, eye.r, bout.n.l, bout.n.r, bout.m.l, bout.m.r) %>%
+  cor(x = select(bsum, m.48, f.48, t.48, m.96, f.96, t.96, m.144, f.144, t.144), 
+      y = select(bsum, NO.dist.min, NO.dist.mean, vel.mean, vel.max, tot.dist, t.move, t.static, bout.n.s, bout.n.m, bout.m.s, bout.m.m, move.1, eye.l, eye.r, bout.n.l, bout.n.r, bout.m.l, bout.m.r),
+      use = 'everything',
+      method = 'pearson')
+rownames(cor.df) <- c('48h M', '48h F', '48h total', '96h M', '96h F', '96h total', '144h M', '144h F', '144h total')
+colnames(cor.df) <- c('NO min. dist.', 'NO mean dist.', 'Mean velocity', 'Max velocity', 'Total dist.', 'Time moving',
+                      'time static', 'No. static bouts','No. moving bouts', 'Mean length static bouts', 'Mean length moving bouts',
+                      '1st movement', 'NO left eye', 'NO right eye', 'No. left eye bouts', 'No right eye bouts', 'Mean length left eye bouts',
+                      'Mean length right eye bouts')
+
+corrplot(cor.df, 
+         method = 'color',
+         addCoef.col = 'black'
+        )
+
 
 # principal component analysis
 library(factoextra)
@@ -388,6 +419,29 @@ pca.facet <- ggplot(pc.df, aes(x = .panel_x, y = .panel_y, colour = rep(delouse.
   facet_matrix(vars(everything())) +
   scale_color_gradient(low = 'blue', high = 'red')
 
+# regression facet plots
+reg.df <- bsum %>% filter(ID != 'C3')
+reg.facet <- ggplot(reg.df, aes(x = .panel_x, y = .panel_y, colour = rep(delouse.groups, 121))) +
+  geom_point(alpha = 1, shape = 16, size = 2) +
+  facet_matrix(vars(t.144, NO.dist.mean, vel.mean, vel.max, t.move, bout.n.m, bout.m.m, move.1, eye.l, bout.n.l, bout.m.l)) +
+  geom_smooth(se = F)
+
+library(devtools)
+source_gist("524eade46135f6348140") # new function to plot r2 and regression equation on plot
+
+reg.facet2 <- bsum %>%
+  filter(ID != 'C3') %>%
+  melt(id.vars = c('ID', 't.144'), measure.vars = c('NO.dist.mean', 'NO.dist.min', 'vel.mean', 'vel.max', 't.move', 't.static', 'bout.n.s', 'bout.n.m', 
+                                                    'bout.m.s', 'bout.m.m', 'move.1', 'eye.l', 'eye.r', 'bout.n.l', 'bout.n.r', 'bout.m.l', 'bout.m.r')) %>%
+  ggplot(aes(x = t.144, y = value, colour = rep(delouse.groups, 17))) +
+  geom_point() +
+  geom_smooth(se = F, method = 'lm') +
+  stat_smooth_func(geom = 'text', method = 'lm', hjust = 0, parse = T) +
+  facet_wrap(~variable, scales = 'free')
+
+
+
+
 # Plots=============================================================================
 
 # Plot fish tracks with tank and novel object outlines
@@ -403,12 +457,20 @@ ggplot(data = tdat, aes(x = fish.rx, y = fish.ry)) +
 # plot velocity for each fish
 ggplot(data = tdat, aes(x = frame, y = cmsec, colour = ability)) +
   geom_line() +
-  facet_wrap(~ID)
+  facet_wrap(~ID) +
+  scale_x_continuous(name = 'secs') +
+  scale_y_continuous(name = 'Velocity (cm/s)') +
+  guides(colour = guide_legend(title = 'Delousing ability')) +
+  theme_classic()
 
 # plot distance from object for each fish
 ggplot(data = tdat, aes(x = frame, y = distno.r, colour = ability)) +
   geom_line() +
-  facet_wrap(~ID)
+  facet_wrap(~ID) +
+  scale_x_continuous(name = 'secs') +
+  scale_y_continuous(name = 'Distance from novel object (cm)') +
+  guides(colour = guide_legend(title = 'Delousing ability')) +
+  theme_classic()
 
 # plot heading for each fish
 ggplot(data = tdat, aes(x = frame, y = head, colour = ability)) +
@@ -417,15 +479,36 @@ ggplot(data = tdat, aes(x = frame, y = head, colour = ability)) +
 
 # histogram of distance from object for each fish
 ggplot(data = tdat, aes(x = distno.r, fill = ability)) +
-  geom_histogram() +
-  facet_wrap(~ID)
+  geom_histogram(binwidth = 5) +
+  facet_wrap(~ID) +
+  scale_x_continuous(name = 'Distance from novel object (cm)') +
+  scale_y_continuous(name = 'Count') +
+  guides(fill = guide_legend(title = 'Delousing ability')) +
+  theme_classic()
+
+# barplot of total distance travelled for each fish
+ggplot(data = bsum, aes(x = fct_reorder(ID, t.144, .desc = T))) +
+  geom_bar(aes(y = tot.dist, fill = ability), stat = 'identity') +
+  scale_x_discrete(name = 'Tank ID') +
+  scale_y_continuous(name = 'Distance travelled (m)', expand = c(0, 0)) +
+  guides(fill = guide_legend(title = 'Delousing ability')) +
+  theme_classic()
 
 # summary of mean velocity and distance from novel object for each fish
 tdat %>%
-  group_by(ID, ability) %>%
-  dplyr::summarise(mean_vel = mean(cmsec, na.rm = T), mean_dist = mean(distno.r)) %>%
-  ggplot(aes(x = ID)) +
-  geom_bar(aes(y = mean_vel, fill = ability), stat = 'identity')
+  group_by(ID, ability, t.144) %>%
+  dplyr::summarise(mean_vel = mean(cmsec, na.rm = T), 
+                   sd_vel = sd(cmsec, na.rm = T), 
+                   mean_dist = mean(distno.r), 
+                   min_dist = min(distno.r)) %>%
+  ggplot(aes(x = fct_reorder(ID, t.144, .desc = T))) +
+  geom_bar(aes(y = mean_vel, fill = ability), stat = 'identity') +
+  geom_errorbar(aes(ymin = mean_vel-sd_vel, ymax = mean_vel+sd_vel, width = 0.2)) +
+  scale_x_discrete(name = 'Tank ID') +
+  scale_y_continuous(name = 'Velocity (cm/s)', expand = c(0, 0)) +
+  coord_cartesian(ylim = c(0, 15)) +
+  guides(fill = guide_legend(title = 'Delousing ability')) +
+  theme_classic()
 
 tdat %>%
   group_by(ID, ability) %>%
@@ -444,7 +527,11 @@ tdat %>%
   ggplot(aes(x = distno.r, y = cmsec, colour = ability)) +
   geom_point() +
   stat_smooth(method = lm) +
-  facet_wrap(~ID)
+  facet_wrap(~ID) +
+  scale_x_continuous(name = 'Distance from novel object (cm)') +
+  scale_y_continuous(name = 'Velocity (cm/s)', expand = c(0, 0)) +
+  guides(colour = guide_legend(title = 'Delousing ability')) +
+  theme_classic()
 
 # barplot of viewing moving and static time
 tdat %>%
@@ -452,8 +539,10 @@ tdat %>%
   #ggplot(aes(x = fct_reorder(ID, ab_code))) +
   ggplot(aes(x = fct_reorder(ID, t.144, .desc = T))) +
   geom_bar(aes(fill = move)) +
-  geom_point(aes(y = t.144)) +
-  scale_y_continuous(name = 'secs', limits = c(0, 300), breaks = c(0, 60, 120, 180, 240, 300), expand = c(0, 0)) +
+  #geom_point(aes(y = t.144)) +
+  scale_y_continuous(name = 'secs', limits = c(0, 300), 
+                     breaks = c(0, 60, 120, 180, 240, 300), 
+                     expand = c(0, 0)) +
   scale_x_discrete(name = 'fish ID') +
   theme(legend.title = element_blank()) +
   scale_fill_manual(values = c("#AA5257", "#7D87B9"), labels = c('Moving', 'Static'))
@@ -464,10 +553,12 @@ tdat %>%
   filter(!is.na(cmsec)) %>%
   ggplot(aes(x = fct_reorder(ID, t.144, .desc = T))) +
   geom_bar(aes(fill = eye)) +
-  scale_y_continuous(name = 'secs', limits = c(0, 300), breaks = c(0, 60, 120, 180, 240, 300), expand = c(0, 0)) +
+  scale_y_continuous(name = 'secs', limits = c(0, 300), 
+                     breaks = c(0, 60, 120, 180, 240, 300), 
+                     expand = c(0, 0)) +
   scale_x_discrete(name = 'fish ID') +
   theme(legend.title = element_blank()) +
-  scale_fill_manual(values = c("#AA5257", "#8A1923"), labels = c('Left eye', 'Right eye'))
+  scale_fill_manual(values = c("#AA5257", "#7D87B9"), labels = c('Left eye', 'Right eye'))
 
 
 # barplot of viewing novel object with left or right eye while static or moving
@@ -508,8 +599,53 @@ tdat %>%
   theme(legend.title = element_blank()) +
   scale_fill_manual(values = c("#AA5257", "#8A1923"), labels = c('Left eye, moving', 'Right eye, moving'))
 
+# barplot of number of static and moving bouts
+bsum %>%
+  melt(id.vars = c('ID', 'ability', 't.144'), measure.vars = c('bout.n.s', 'bout.n.m')) %>%
+  ggplot() +
+  geom_bar(aes(x = fct_reorder(ID, t.144, .desc = T), y = value, fill = variable), stat = 'identity', position = position_dodge()) +
+  theme_classic() +
+  scale_x_discrete(name = 'Tank ID') +
+  scale_y_continuous(name = 'No. of bouts', expand = c(0, 0)) +
+  scale_fill_discrete(name = '', labels = c('Static bouts', 'Moving bouts'))
 
+# barplot of mean duration of static and moving bouts
+bsum %>%
+  melt(id.vars = c('ID', 'ability', 't.144'), measure.vars = c('bout.m.s', 'bout.m.m')) %>%
+  ggplot() +
+  geom_bar(aes(x = fct_reorder(ID, t.144, .desc = T), y = value, fill = variable), stat = 'identity', position = position_dodge()) +
+  theme_classic() +
+  scale_x_discrete(name = 'Tank ID') +
+  scale_y_continuous(name = 'Bout duration (sec)', expand = c(0, 0)) +
+  scale_fill_discrete(name = '', labels = c('Static bouts', 'Moving bouts'))
 
+# barplot of number of left eye and right eye bouts
+bsum %>%
+  melt(id.vars = c('ID', 'ability', 't.144'), measure.vars = c('bout.n.l', 'bout.n.r')) %>%
+  ggplot() +
+  geom_bar(aes(x = fct_reorder(ID, t.144, .desc = T), y = value, fill = variable), stat = 'identity', position = position_dodge()) +
+  theme_classic() +
+  scale_x_discrete(name = 'Tank ID') +
+  scale_y_continuous(name = 'No. of bouts', expand = c(0, 0)) +
+  scale_fill_discrete(name = '', labels = c('Left eye bouts', 'Right eye bouts'))
 
+# barplot of mean duration of left eye and right eye bouts
+bsum %>%
+  melt(id.vars = c('ID', 'ability', 't.144'), measure.vars = c('bout.m.l', 'bout.m.r')) %>%
+  ggplot() +
+  geom_bar(aes(x = fct_reorder(ID, t.144, .desc = T), y = value, fill = variable), stat = 'identity', position = position_dodge()) +
+  theme_classic() +
+  scale_x_discrete(name = 'Tank ID') +
+  scale_y_continuous(name = 'Bout duration', expand = c(0, 0)) +
+  scale_fill_discrete(name = '', labels = c('Left eye bouts', 'Right eye bouts'))
+
+# barplot of time of first movement after novel object added
+bsum %>%
+  ggplot() +
+  geom_bar(aes(x = fct_reorder(ID, t.144, .desc = T), y = move.1, fill = ability), stat = 'identity') +
+  theme_classic() +
+  scale_x_discrete(name = 'Tank ID') +
+  scale_y_continuous(name = 'Time of first movement (sec)', expand = c(0, 0)) +
+  scale_fill_discrete(name = 'Delousing ability')
 
 
