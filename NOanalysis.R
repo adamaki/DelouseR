@@ -349,19 +349,20 @@ library(corrplot)
 
 cor.df <-
   #select(m.144, f.144, t.144, NO.dist.min, NO.dist.mean, vel.mean, vel.max, tot.dist, t.move, t.static, bout.n.s, bout.n.m, bout.m.s, bout.m.m, move.1, eye.l, eye.r, bout.n.l, bout.n.r, bout.m.l, bout.m.r) %>%
-  cor(x = select(bsum, m.48, f.48, t.48, m.96, f.96, t.96, m.144, f.144, t.144), 
-      y = select(bsum, NO.dist.min, NO.dist.mean, vel.mean, vel.max, tot.dist, t.move, t.static, bout.n.s, bout.n.m, bout.m.s, bout.m.m, move.1, eye.l, eye.r, bout.n.l, bout.n.r, bout.m.l, bout.m.r),
+  cor(y = select(bsum, m.48, f.48, t.48, m.96, f.96, t.96, m.144, f.144, t.144), 
+      x = select(bsum, NO.dist.min, NO.dist.mean, vel.mean, vel.max, tot.dist, t.move, t.static, bout.n.s, bout.n.m, bout.m.s, bout.m.m, move.1, eye.l, eye.r, bout.n.l, bout.n.r, bout.m.l, bout.m.r),
       use = 'everything',
       method = 'pearson')
-rownames(cor.df) <- c('48h M', '48h F', '48h total', '96h M', '96h F', '96h total', '144h M', '144h F', '144h total')
-colnames(cor.df) <- c('NO min. dist.', 'NO mean dist.', 'Mean velocity', 'Max velocity', 'Total dist.', 'Time moving',
+colnames(cor.df) <- c('48h M', '48h F', '48h total', '96h M', '96h F', '96h total', '144h M', '144h F', '144h total')
+rownames(cor.df) <- c('NO min. dist.', 'NO mean dist.', 'Mean velocity', 'Max velocity', 'Total dist.', 'Time moving',
                       'time static', 'No. static bouts','No. moving bouts', 'Mean length static bouts', 'Mean length moving bouts',
                       '1st movement', 'NO left eye', 'NO right eye', 'No. left eye bouts', 'No right eye bouts', 'Mean length left eye bouts',
                       'Mean length right eye bouts')
 
 corrplot(cor.df, 
          method = 'color',
-         addCoef.col = 'black'
+         addCoef.col = 'black',
+         tl.col = 'black'
         )
 
 
@@ -370,19 +371,25 @@ library(factoextra)
 
 pca.df <- bsum %>% filter(ID != 'C3') # remove C3 as didn't move in behaviour test
 
-pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(10:26) # select wrasse behaviour data for pca
+pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(11:28) # select wrasse behaviour data for pca
 pca.df <- pca.df%>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(NO.dist.min, vel.mean, t.move, bout.n.m, bout.m.m, eye.l, bout.n.l, bout.m.l, move.1)
 pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(NO.dist.min, vel.mean, t.move, eye.l, move.1)
 
 
 delouse.groups <- pull(round(bsum[,10], -1))[-2] # colour by all lice delousing
+delouse.groups <- cut(bsum$t.144, breaks = c(-1, 30, 100), labels = c('<30%', '>30%'))   [-2] # colour by all lice delousing
 
 res.pca <- prcomp(pca.df, scale = T) # PCA calculation
 fviz_eig(res.pca) # eigen value plot
-fviz_pca_ind(res.pca, axes = c(1, 7), geom = c('point', 'text'), palette = c('blue', 'red'),  habillage = delouse.groups,  pointshape = 19, repel = T) # individual PCA plot
+fviz_pca_ind(res.pca, axes = c(1, 7), geom = c('point', 'text'), palette = c('red', 'blue'),  
+             habillage = delouse.groups,  pointshape = 19, repel = T, 
+             invisible = 'quali', pointsize = 3.5, title = 'PC1 vs. PC7') +
+            guides(colour = guide_legend(title = 'Delousing ability \n (% lice left after 6d)')) # individual PCA plot
 fviz_pca_biplot(res.pca, axes = c(1, 2), geom = c('point', 'text'), palette = 'RdBu',  habillage = delouse.groups,  pointshape = 19, repel = T) # individual PCA plot
 fviz_pca_ind(res.pca, axes = c(2, 3), geom = c('point', 'text'), palette = 'RdBu',  habillage = delouse.groups,  pointshape = 19, repel = T) # individual PCA plot
-fviz_pca_var(res.pca, col.var = 'contrib', gradient.cols = c('#00AFBB', '#E7B800', '#FC4E07'), repel = T) # variables plot
+fviz_pca_var(res.pca, axes = c(1,7), col.var = 'contrib', 
+             gradient.cols = c('#00AFBB', '#E7B800', '#FC4E07'), repel = T,
+             title = 'PC1 vs. PC7') # variables plot
 fviz_pca_biplot(res.pca, repel = T, col.var = '#2E9FDF', col.ind = '#696969') # bipot of individuals and variables
 
 eig.val <- get_eigenvalue(res.pca) # extract eigenvalues from pca object
@@ -394,30 +401,37 @@ res.ind <- get_pca_ind(res.pca) # extract individual coordinates from pca object
 # https://www.r-bloggers.com/using-r-two-plots-of-principal-component-analysis/
 
 pca.df <- bsum %>% filter(ID != 'C3')
-pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(10:26) 
+pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(11:28) 
 res.pca <- prcomp(pca.df, scale = T) 
 
 pca.melt <- melt(res.pca$rotation)
 
-loading.plot <- ggplot(data = pca.melt) +
+# loading plot of principal components
+ggplot(data = pca.melt) +
   geom_bar(aes(x = Var1, y = value, fill = Var1), stat = 'identity') +
-  facet_wrap(~Var2)
+  facet_wrap(~Var2) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90))
 
 # https://www.data-imaginist.com/2019/a-flurry-of-facets/
 
 library(ggforce)
 
 pca.df <- bsum %>% filter(ID != 'C3')
-pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(10:26) 
+pca.df <- pca.df %>% remove_rownames %>% column_to_rownames(var = 'ID') %>% select(11:28) 
 res.pca <- prcomp(pca.df, scale = T) 
 pc.df <- as.data.frame(res.pca$x)
 
 delouse.groups <- pull(round(bsum[,10], -1))[-2] # colour by all lice delousing
 
-pca.facet <- ggplot(pc.df, aes(x = .panel_x, y = .panel_y, colour = rep(delouse.groups, 81))) +
+# pca facet plot
+ggplot(pc.df, aes(x = .panel_x, y = .panel_y, colour = rep(delouse.groups, 81))) +
   geom_point(alpha = 1, shape = 16, size = 2) +
   facet_matrix(vars(everything())) +
-  scale_color_gradient(low = 'blue', high = 'red')
+  #scale_color_discrete(h = c('red', 'blue')) +
+  theme_linedraw() +
+  guides(colour = guide_legend(title = 'Delousing ability \n (% lice left after 6d)'))
+  
 
 # regression facet plots
 reg.df <- bsum %>% filter(ID != 'C3')
@@ -426,18 +440,30 @@ reg.facet <- ggplot(reg.df, aes(x = .panel_x, y = .panel_y, colour = rep(delouse
   facet_matrix(vars(t.144, NO.dist.mean, vel.mean, vel.max, t.move, bout.n.m, bout.m.m, move.1, eye.l, bout.n.l, bout.m.l)) +
   geom_smooth(se = F)
 
+
+
 library(devtools)
 source_gist("524eade46135f6348140") # new function to plot r2 and regression equation on plot
 
-reg.facet2 <- bsum %>%
+facet.labs <- c('NO min. dist.', 'NO mean dist.', 'Mean velocity', 'Max velocity', 'Total dist.', 'Time moving',
+                      'time static', 'No. static bouts','No. moving bouts', 'Mean length static bouts', 'Mean length moving bouts',
+                      '1st movement', 'NO left eye', 'NO right eye', 'No. left eye bouts', 'No right eye bouts', 'Mean length left eye bouts',
+                      'Mean length right eye bouts')
+names(facet.labs) <- c('NO.dist.mean', 'NO.dist.min', 'vel.mean', 'vel.max', 'tot.dist', 't.move', 't.static', 'bout.n.s', 'bout.n.m', 
+                       'bout.m.s', 'bout.m.m', 'move.1', 'eye.l', 'eye.r', 'bout.n.l', 'bout.n.r', 'bout.m.l', 'bout.m.r')
+
+bsum %>%
   filter(ID != 'C3') %>%
-  melt(id.vars = c('ID', 't.144'), measure.vars = c('NO.dist.mean', 'NO.dist.min', 'vel.mean', 'vel.max', 't.move', 't.static', 'bout.n.s', 'bout.n.m', 
+  melt(id.vars = c('ID', 't.144'), measure.vars = c('NO.dist.mean', 'NO.dist.min', 'vel.mean', 'vel.max', 'tot.dist', 't.move', 't.static', 'bout.n.s', 'bout.n.m', 
                                                     'bout.m.s', 'bout.m.m', 'move.1', 'eye.l', 'eye.r', 'bout.n.l', 'bout.n.r', 'bout.m.l', 'bout.m.r')) %>%
-  ggplot(aes(x = t.144, y = value, colour = rep(delouse.groups, 17))) +
+  #ggplot(aes(x = t.144, y = value, colour = rep(delouse.groups, 18))) +
+  ggplot(aes(x = t.144, y = value)) +
   geom_point() +
-  geom_smooth(se = F, method = 'lm') +
-  stat_smooth_func(geom = 'text', method = 'lm', hjust = 0, parse = T) +
-  facet_wrap(~variable, scales = 'free')
+  geom_smooth(se = F, method = 'glm') +
+  stat_smooth_func2(geom = 'text', method = 'lm', hjust = 0, parse = T) +
+  scale_x_continuous(name = '144h total lice') +
+  facet_wrap(~variable, scales = 'free', labeller = labeller(variable = facet.labs)) +
+  theme_classic()
 
 
 
