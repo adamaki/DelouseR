@@ -1,12 +1,15 @@
 # Cleaner fish tank delousing
 # Adam Brooker 29th August 2019
 
-source('G:/Projects/Lumpfish delousing/Delousing-initiate.R')
+source('/Users/adambrooker/R Projects/DelouseR/Delousing-initiate.R')
+
 
 # Load and reformat T1 summer temperature trial ---------------------------------------
-setwd('G:/Projects/Lumpfish delousing/Data/T1 Summer')
+workingdir <- ifelse(Sys.info()['user'] == 'Laptop', 'G:/Projects/Lumpfish delousing/Data/T1 Summer', 
+                     '/Users/adambrooker/Dropbox/1-IoA/cleanerfish/Projects/SAIC Lumpfish/Delousing Trials/T1 Summer') # change to location of data
+setwd(workingdir)
 
-t1data <- read.csv('t2summerdata.csv')
+t1data <- read.csv('t1summerdata.csv')
 
 t1data$time <- dplyr::recode(t1data$time, '1' = 0, '2' = 24, '3' = 48, '4' = 72, '5' = 96)
 t1data$treatment <- dplyr::recode(t1data$treatment, 'con' = 'Control', 'LL' = 'Large lumpfish', 'SL' = 'Small lumpfish', 'W' = 'Wrasse')
@@ -19,7 +22,7 @@ t1data <- arrange(t1data, time, treatment, replicate) # arrange data
 
 
 # melt data into long format--------------------------------------------------------------------------------------------------
-males <- t5data %>% 
+males <- t1data %>% 
           mutate(head.m = dorsal_head.m + mid_head.m + ventral_head.m) %>%
           select(-dorsal_head.m, -mid_head.m, -ventral_head.m) %>%
           melt(id = c('time', 'tank', 'treatment', 'replicate','fish'), value.name = 'male') %>%
@@ -27,23 +30,23 @@ males <- t5data %>%
           filter(variable != 'total.m' & variable != 'bucket.m') %>%
           dplyr::rename(location = variable)
 
-females <- t5data %>%
+females <- t1data %>%
             mutate(head.f = dorsal_head.f + mid_head.f + ventral_head.f) %>%
             select(-dorsal_head.f, -mid_head.f, -ventral_head.f) %>%
             melt(id = c('time', 'tank', 'treatment', 'replicate','fish'), value.name = 'female') %>%
             filter(grepl('.f', variable, fixed = T)) %>%
             filter(variable != 'total.f' & variable != 'bucket.f')
 
-t5melt <- bind_cols(males, female = females$female)
-t5melt$location <- str_sub(t5melt$location, end = -3) # remove .m from locations
-t5melt$location <- as.factor(t5melt$location)
-t5melt$time <- as.factor(t5melt$time)
-t5melt$location <- factor(t5melt$location, levels(t5melt$location)[c(7, 1, 2, 3, 4, 5, 6, 9, 10, 11, 8)])
-t5melt$total <- t5melt$male + t5melt$female
+t1melt <- bind_cols(males, female = females$female)
+t1melt$location <- str_sub(t1melt$location, end = -3) # remove .m from locations
+t1melt$location <- as.factor(t1melt$location)
+t1melt$time <- as.factor(t1melt$time)
+t1melt$location <- factor(t1melt$location, levels(t1melt$location)[c(7, 1, 2, 3, 4, 5, 6, 9, 10, 11, 8)])
+t1melt$total <- t1melt$male + t1melt$female
 rm(males, females)
 
 # summarise data and barplot No. of lice by time and location----------------------------------------------------------------------
-t5locsum <- t5melt %>%
+t1locsum <- t1melt %>%
   group_by(time, treatment, replicate, location) %>%
   dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
 
@@ -56,7 +59,7 @@ fishpal <- c(sequential_hcl(3, h = -349, c = c(83, 50), l = c(34, 81), 0.7)[2],
              
              
 # all lice plot
-ggplot(t5locsum, aes(x = time, y = mean.t, fill = location)) +
+ggplot(t1locsum, aes(x = time, y = mean.t, fill = location)) +
   geom_bar(stat = 'identity', position = 'stack') +
   scale_x_discrete(breaks = c(0, 24, 48, 72, 96), labels = c('0', '24', '48', '72', '96'), name = 'Time (h)') +
   scale_y_continuous(name = 'mean No. of lice') +
@@ -65,7 +68,7 @@ ggplot(t5locsum, aes(x = time, y = mean.t, fill = location)) +
   facet_wrap(~treatment)
 
 # female plot
-ggplot(t5locsum, aes(x = time, y = mean.f, fill = location)) +
+ggplot(t1locsum, aes(x = time, y = mean.f, fill = location)) +
   geom_bar(stat = 'identity', position = 'stack') +
   scale_x_discrete(breaks = c(0, 24, 48, 72, 96), labels = c('0', '24', '48', '72', '96'), name = 'Time (h)') +
   scale_y_continuous(name = 'mean No. of female lice') +
@@ -74,7 +77,7 @@ ggplot(t5locsum, aes(x = time, y = mean.f, fill = location)) +
   facet_wrap(~treatment)
 
 # male plot
-ggplot(t5locsum, aes(x = time, y = mean.m, fill = location)) +
+ggplot(t1locsum, aes(x = time, y = mean.m, fill = location)) +
   geom_bar(stat = 'identity', position = 'stack') +
   scale_x_discrete(breaks = c(0, 24, 48, 72, 96), labels = c('0', '24', '48', '72', '96'), name = 'Time (h)') +
   scale_y_continuous(name = 'mean No. of male lice') +
@@ -84,12 +87,12 @@ ggplot(t5locsum, aes(x = time, y = mean.m, fill = location)) +
 
 
 # summarise data and do lineplots--------------------------------------------------------------------------------
-t5summ <- t5data %>%
+t1summ <- t1data %>%
   group_by(time, tank, treatment, replicate) %>%
   dplyr::summarise(m_m = mean(total.m), sd_m = sd(total.m), m_f = mean(total.f), sd_f = sd(total.f), tot_m = mean(total.m + total.f), tot_sd = sd(total.m + total.f))
 
 # summarise by time and group with rep as error and draw plot of total lice
-t5summ %>%
+t1summ %>%
   group_by(time, treatment) %>%
   dplyr::summarise(mean_m = mean(m_m), sd_m = sd(m_m), mean_f = mean(m_f), sd_f = sd(m_f), total_mean = mean(tot_m), total_sd = sd(tot_m)) %>%
   ggplot(aes(x = time, y = total_mean, colour = treatment)) +
@@ -102,7 +105,7 @@ t5summ %>%
   theme(legend.title = element_blank())
 
 # summarise by time and group with rep as error and draw plot of male lice
-t5summ %>%
+t1summ %>%
   group_by(time, treatment) %>%
   dplyr::summarise(mean_m = mean(m_m), sd_m = sd(m_m), mean_f = mean(m_f), sd_f = sd(m_f), total_mean = mean(tot_m), total_sd = sd(tot_m)) %>%
   ggplot(aes(x = time, y = mean_m, colour = treatment)) +
@@ -116,7 +119,7 @@ t5summ %>%
 
 
 # summarise by time and group with rep as error and draw plot of female lice
-t5summ %>%
+t1summ %>%
   group_by(time, treatment) %>%
   dplyr::summarise(mean_m = mean(m_m), sd_m = sd(m_m), mean_f = mean(m_f), sd_f = sd(m_f), total_mean = mean(tot_m), total_sd = sd(tot_m)) %>%
   ggplot(aes(x = time, y = mean_f, colour = treatment)) +
@@ -129,15 +132,16 @@ t5summ %>%
   theme(legend.title = element_blank())
 
 # plot all lice by tank over time
-ggplot(data = t5summ, aes(x = time, y = tot_m, group = tank, colour = treatment)) +
+ggplot(data = t1summ, aes(x = time, y = tot_m, group = tank, colour = treatment)) +
   geom_line(size = 1) +
-  geom_errorbar(aes(x = time, ymin = tot_m-tot_sd, ymax = tot_m+tot_sd), width = 3, position = 'dodge') +
+#  geom_errorbar(aes(x = time, ymin = tot_m-tot_sd, ymax = tot_m+tot_sd), width = 3, position = 'dodge') +
+  geom_errorbar(aes(x = time, ymin = tot_m-(tot_sd/sqrt(10)), ymax = tot_m+(tot_sd/sqrt(10))), width = 3, position = 'dodge') +
   scale_y_continuous(limits = c(0, 30)) +
   ggtitle('All lice') +
   theme_classic()
 
 # plot all lice by tank over time
-t5summ %>% filter(treatment == 'Wrasse') %>%
+t1summ %>% filter(treatment == 'Wrasse') %>%
 ggplot(aes(x = time, y = tot_m, group = tank, colour = tank)) +
   geom_line(size = 1) +
   geom_errorbar(aes(x = time, ymin = tot_m-tot_sd, ymax = tot_m+tot_sd), width = 3, position = 'dodge') +

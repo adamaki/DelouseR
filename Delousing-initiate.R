@@ -6,6 +6,7 @@ library(ggplot2)
 library(plyr)
 library(dplyr)
 library(reshape2)
+library(data.table)
 library(stringr)
 library(colorspace)
 #library(grImport)
@@ -17,6 +18,7 @@ library(magick)
 library(colorRamps)
 library(forcats)
 library(RColorBrewer)
+library(tidyr)
 
 # FUNCTIONS----------------------------------------------------------------------------------------------------
 
