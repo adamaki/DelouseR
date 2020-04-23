@@ -152,51 +152,55 @@ ggplot(aes(x = time, y = tot_m, group = tank, colour = tank)) +
 # Delousing rates----------------------------------------------------------------------------------------------
 
 # create summary dataset of T0 mean lice counts
-means <- t5data %>%
+means <- t1data %>%
   group_by(time, tank, treatment, replicate) %>%
   dplyr::summarise(start.m = mean(total.m), start.f = mean(total.f), start.t = mean(total.m + total.f)) %>%
   filter(time == '0')
 
-t5data <- left_join(t5data, means[,c(2, 5:7)], by = 'tank') # Join mean T0 totals to raw dataset to compare delousing rate
+t1data <- left_join(t1data, means[,c(2, 5:7)], by = 'tank') # Join mean T0 totals to raw dataset to compare delousing rate
 
-t5data <- t5data %>% mutate(dec.m = (total.m/start.m)*100, dec.f = (total.f/start.f)*100, dec.t = (total/start.t)*100) # calculate delousing rate columns based on tank mean at T0
+t1data <- t1data %>% mutate(dec.m = (total.m/start.m)*100, dec.f = (total.f/start.f)*100, dec.t = (total/start.t)*100) # calculate delousing rate columns based on tank mean at T0
 
-# filter treatments after T0 when delousing rate is > 0.5 of tank mean at T0
-t5dfilt <- rbind(t5data %>% filter(time == '0' | treatment == 'Control'), t5data %>% filter(time != '0' & treatment != 'Control' & dec.t < 0.5))
-t5dfilt <- arrange(t5dfilt, time, treatment, replicate, fish)
+# change 0% values to 0.1% (avoids fish outside 0-10 category)
+#t1dfilt <- rbind(t1data %>% filter(time == '0' | treatment == 'Control'), t1data %>% filter(time != '0' & treatment != 'Control' & dec.t < 0.5))
+t1filt <- t1data %>%
+  mutate(dec.m = ifelse(dec.m == 0, 0.1, dec.m)) %>%
+  mutate(dec.f = ifelse(dec.f == 0, 0.1, dec.f)) %>%
+  mutate(dec.t = ifelse(dec.t == 0, 0.1, dec.t))
+t1filt <- arrange(t1filt, time, treatment, replicate, fish)
 
 # melt data into long format
-males <- t5dfilt %>% 
+males <- t1filt %>% 
   mutate(head.m = dorsal_head.m + mid_head.m + ventral_head.m) %>%
   select(-dorsal_head.m, -mid_head.m, -ventral_head.m, -total.m, -start.m, -dec.m, -bucket.m) %>%
-  melt(id = c('time', 'tank', 'treatment', 'replicate','fish'), value.name = 'male') %>%
+  reshape2::melt(id = c('time', 'tank', 'treatment', 'replicate','fish'), value.name = 'male') %>%
   filter(grepl('.m', variable, fixed = T)) %>%
   #filter(variable != 'total.m' & variable != 'bucket.m') %>%
   dplyr::rename(location = variable)
 
-females <- t5dfilt %>%
+females <- t1filt %>%
   mutate(head.f = dorsal_head.f + mid_head.f + ventral_head.f) %>%
   select(-dorsal_head.f, -mid_head.f, -ventral_head.f, -total.f, -start.f, -dec.f, -bucket.f) %>%
-  melt(id = c('time', 'tank', 'treatment', 'replicate','fish'), value.name = 'female') %>%
+  reshape2::melt(id = c('time', 'tank', 'treatment', 'replicate','fish'), value.name = 'female') %>%
   filter(grepl('.f', variable, fixed = T))
   #filter(variable != 'total.f' & variable != 'bucket.f')
 
-t5dmelt <- bind_cols(males, female = females$female)
-t5dmelt$location <- str_sub(t5dmelt$location, end = -3) # remove .m from locations
-t5dmelt$location <- as.factor(t5dmelt$location)
-t5dmelt$time <- as.factor(t5dmelt$time)
-t5dmelt$location <- factor(t5dmelt$location, levels(t5dmelt$location)[c(7, 1, 2, 3, 4, 5, 6, 9, 10, 11, 8)])
-t5dmelt$total <- t5dmelt$male + t5dmelt$female
+t1melt <- bind_cols(males, female = females$female)
+t1melt$location <- str_sub(t1melt$location, end = -3) # remove .m from locations
+t1melt$location <- as.factor(t1melt$location)
+t1melt$time <- as.factor(t1melt$time)
+t1melt$location <- factor(t1melt$location, levels(t1melt$location)[c(7, 1, 2, 3, 4, 5, 6, 9, 10, 11, 8)])
+t1melt$total <- t1melt$male + t1melt$female
 rm(males, females)
 
-t5dlocsum <- t5dmelt %>%
+t1locsum <- t1melt %>%
   group_by(time, treatment, replicate, location) %>%
   dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
 
 # plot treatments by daily delousing rate histogram---------------------
-t5data$dprop.m <- cut(t5data$dec.m, breaks = c(-1, seq(10, 90, 10), 800), labels = (c('0-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100')))
-t5data$dprop.f <- cut(t5data$dec.f, breaks = c(-1, seq(10, 90, 10), 800), labels = (c('0-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100')))
-t5data$dprop.t <- cut(t5data$dec.t, breaks = c(-1, seq(10, 90, 10), 800), labels = (c('0-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100')))
+t1data$dprop.m <- cut(t1data$dec.m, breaks = c(-1, seq(10, 90, 10), 800), labels = (c('0-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100')))
+t1data$dprop.f <- cut(t1data$dec.f, breaks = c(-1, seq(10, 90, 10), 800), labels = (c('0-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100')))
+t1data$dprop.t <- cut(t1data$dec.t, breaks = c(-1, seq(10, 90, 10), 800), labels = (c('0-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100')))
 #t5data$dprop.t <- cut(t5data$dec.t, breaks = c(-1, seq(10, 90, 10), 800), labels = (c('91-100%', '81-90%', '71-80%', '61-70%', '51-60%', '41-50%', '31-40%', '21-30%', '11-20%', '0-10%')))
 
 t5data$time <- as.factor(t5data$time)
@@ -213,7 +217,7 @@ dplot.f <- t5data %>%
   theme_classic() +
   ggtitle('Delousing rates - female lice')
 
-dplot.m <- t5data %>%
+dplot.m <- t1data %>%
   filter(treatment != 'Control' & time != 0) %>%
   ggplot(aes(x = time, fill = dprop.m)) +
   geom_bar(position = 'fill', stat = 'count') +

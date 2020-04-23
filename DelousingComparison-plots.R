@@ -17,11 +17,11 @@ t1data <- arrange(t1data, time, treatment, replicate) # arrange data
 
 # code to select 10 fish per tank from final 30-fish sample
 
-t1data.s <- t1data %>%
-  group_by(time, tank) %>%
-  sample_n(10) %>%
-  arrange(time, treatment, replicate, fish) %>%
-  mutate(fish = seq(1, 10, 1))
+#t1data.s <- t1data %>%
+#  group_by(time, tank) %>%
+#  sample_n(10) %>%
+#  arrange(time, treatment, replicate, fish) %>%
+#  mutate(fish = seq(1, 10, 1))
 
 t1data.s <- t1data %>%
   group_by(time, tank) %>%
@@ -78,6 +78,7 @@ t2data$total.f <- t2data$total.fc + t2data$total.fp
 t2data$total <- t2data$total.m + t2data$total.f
 
 t2data <- arrange(t2data, time, treatment, replicate) # arrange data
+t2data$treatment <- factor(t2data$treatment, levels(t2data$treatment)[c(1, 3, 2, 4)]) # change treatment order
 
 
 
@@ -193,46 +194,95 @@ t3dec.p <- #t3means %>%
 plot_grid(t1dec.p, t2dec.p, t3dec.p, labels = c('(a)', '(b)', '(c)'), hjust = c(-3.5, -3.5, -3.5), vjust = c(2, 2, 2))
 
   
-# summarise lice numbers by time and group with rep as error and draw plot of total lice-------------
-t1summ <- t1data %>%
+# Figure 2. Delousing rates------------------------------------------
+
+# Trial 1 summer
+means <- t1data %>%
   group_by(time, tank, treatment, replicate) %>%
-  dplyr::summarise(m_m = mean(total.m), sd_m = sd(total.m), m_f = mean(total.f), sd_f = sd(total.f), tot_m = mean(total.m + total.f), tot_sd = sd(total.m + total.f))
+  dplyr::summarise(start.m = mean(total.m), start.f = mean(total.f), start.t = mean(total.m + total.f)) %>%
+  filter(time == '0')
 
-t1summ %>%
-  group_by(time, treatment) %>%
-  dplyr::summarise(mean_m = mean(m_m), sd_m = sd(m_m), mean_f = mean(m_f), sd_f = sd(m_f), total_mean = mean(tot_m), total_sd = sd(tot_m)) %>%
-  ggplot(aes(x = time, y = total_mean, colour = treatment)) +
-  geom_line(size = 1) +
-  geom_errorbar(aes(x = time, ymin = total_mean-total_sd, ymax = total_mean+total_sd), width = 3, position = 'dodge', size = 1) +
-  scale_y_continuous(limits = c(0, 25), name = 'mean lice per fish') +
-  scale_x_continuous(breaks = c(0, 24, 48, 72, 96), labels = c('0', '24', '48', '72', '96'), name = 'Time (h)') +
-  ggtitle('Total lice') +
+t1data <- left_join(t1data, means[,c(2, 5:7)], by = 'tank') # Join mean T0 totals to raw dataset to compare delousing rate
+t1data <- t1data %>% mutate(dec.m = (total.m/start.m)*100, dec.f = (total.f/start.f)*100, dec.t = (total/start.t)*100) # calculate delousing rate columns based on tank mean at T0
+
+t1data$dprop.t <- cut(t1data$dec.t, breaks = c(-1, seq(10, 100, 10), 800), 
+                      labels = (c('0-10%', '10-20%', '20-30%', '30-40%', '40-50%', '50-60%', '60-70%', '70-80%', '80-90%', '90-100%', '100%+')))
+
+t1data$time <- as.factor(t1data$time)
+#choose_palette()
+delousepal <- rev(sequential_hcl(11, h = 245, c = c(81, 14), l = c(34, 93), 1.1)) # blue palette
+delousepal <- rev(sequential_hcl(11, h = 245, c = c(0, 0), l = c(17, 93), 1.1)) # grey palette
+
+dplot.t1 <- t1data %>%
+  filter(treatment != 'Control') %>%
+  ggplot(aes(x = time, fill = dprop.t)) +
+  geom_bar(position = 'fill', stat = 'count') +
+  scale_x_discrete(name = 'Time (h)', expand = c(0, 0)) +
+  scale_y_continuous(name = 'Proportion of salmon (%)', labels = scales::percent, expand = c(0, 0)) +
+  facet_wrap(~treatment) +
+  scale_fill_manual(values = delousepal, name = 'Lice per fish') +
   theme_classic() +
-  theme(legend.title = element_blank())
+  theme(strip.background = element_rect(color = 'white', fill = "white"),
+        text = element_text(size = 14))
 
-# summarise by time and group with rep as error and draw plot of male lice
-t1summ %>%
-  group_by(time, treatment) %>%
-  dplyr::summarise(mean_m = mean(m_m), sd_m = sd(m_m), mean_f = mean(m_f), sd_f = sd(m_f), total_mean = mean(tot_m), total_sd = sd(tot_m)) %>%
-  ggplot(aes(x = time, y = mean_m, colour = treatment)) +
-  geom_line(size = 1) +
-  geom_errorbar(aes(x = time, ymin = mean_m-sd_m, ymax = mean_m+sd_m), width = 3, position = 'dodge', size = 1) +
-  scale_y_continuous(limits = c(0, 15), name = 'mean lice per fish') +
-  scale_x_continuous(breaks = c(0, 24, 48, 72, 96), labels = c('0', '24', '48', '72', '96'), name = 'Time (h)') +
-  ggtitle('Male lice') +
+# Trial 2 cryptic
+means <- t2data %>%
+  group_by(time, tank, treatment, replicate) %>%
+  dplyr::summarise(start.m = mean(total.m), start.f = mean(total.f), start.t = mean(total.m + total.f)) %>%
+  filter(time == '0')
+
+t2data <- left_join(t2data, means[,c(2, 5:7)], by = 'tank') # Join mean T0 totals to raw dataset to compare delousing rate
+t2data <- t2data %>% mutate(dec.m = (total.m/start.m)*100, dec.f = (total.f/start.f)*100, dec.t = (total/start.t)*100) # calculate delousing rate columns based on tank mean at T0
+
+t2data$dprop.t <- cut(t2data$dec.t, breaks = c(-1, seq(10, 100, 10), 800), 
+                      labels = (c('0-10%', '10-20%', '20-30%', '30-40%', '40-50%', '50-60%', '60-70%', '70-80%', '80-90%', '90-100%', '100%+')))
+
+t2data$time <- as.factor(t2data$time)
+#choose_palette()
+#delousepal <- rev(sequential_hcl(11, h = 245, c = c(81, 14), l = c(34, 93), 1.1)) # blue palette
+delousepal <- rev(sequential_hcl(11, h = 245, c = c(0, 0), l = c(17, 93), 1.1)) # grey palette
+
+dplot.t2 <- t2data %>%
+  filter(treatment != 'Control') %>%
+  ggplot(aes(x = time, fill = dprop.t)) +
+  geom_bar(position = 'fill', stat = 'count') +
+  scale_x_discrete(name = 'Time (h)', expand = c(0, 0)) +
+  scale_y_continuous(name = 'Proportion of salmon (%)', labels = scales::percent, expand = c(0, 0)) +
+  facet_wrap(~treatment) +
+  scale_fill_manual(values = delousepal, name = 'Lice per fish') +
   theme_classic() +
-  theme(legend.title = element_blank())
+  theme(strip.background = element_rect(color = 'white', fill = "white"),
+        text = element_text(size = 14), 
+        legend.position = 'none')
 
+# Trial 3 winter
 
-# summarise by time and group with rep as error and draw plot of female lice
-t1summ %>%
-  group_by(time, treatment) %>%
-  dplyr::summarise(mean_m = mean(m_m), sd_m = sd(m_m), mean_f = mean(m_f), sd_f = sd(m_f), total_mean = mean(tot_m), total_sd = sd(tot_m)) %>%
-  ggplot(aes(x = time, y = mean_f, colour = treatment)) +
-  geom_line(size = 1) +
-  geom_errorbar(aes(x = time, ymin = mean_f-sd_f, ymax = mean_f+sd_f), width = 3, position = 'dodge', size = 1) +
-  scale_y_continuous(limits = c(0, 25), name = 'mean lice per fish') +
-  scale_x_continuous(breaks = c(0, 24, 48, 72, 96), labels = c('0', '24', '48', '72', '96'), name = 'Time (h)') +
-  ggtitle('Female lice') +
+dplot.t3 <- #t3data %>%
+  #filter(treatment != 'Control') %>%
+  #ggplot(aes(x = time, fill = dprop.t)) +
+  ggplot() +
+  geom_bar(position = 'fill', stat = 'count') +
+  scale_x_discrete(name = 'Time (h)', expand = c(0, 0)) +
+  scale_y_continuous(name = 'Proportion of salmon (%)', labels = scales::percent, expand = c(0, 0)) +
+  #facet_wrap(~treatment) +
+  scale_fill_manual(values = delousepal, name = 'Lice per fish') +
   theme_classic() +
-  theme(legend.title = element_blank())
+  theme(strip.background = element_rect(color = 'white', fill = "white"),
+        text = element_text(size = 14),
+        legend.position = 'none')
+
+dplot.legend <- get_legend(dplot.t1)
+dplot.t1 <- dplot.t1 + theme(legend.position = 'none')
+
+plot_grid(dplot.t1, dplot.t2, dplot.t3,
+          plot_grid(dplot.legend,
+                    ncol = 3,
+                    nrow = 1),
+          ncol = 2,
+          nrow = 2,
+          labels = c('(a)', '(b)', '(c)'), 
+          hjust = c(-26.6, -25.3, -26.8), 
+          vjust = c(1.8, 1.8, 1.8))
+
+
+
