@@ -257,16 +257,16 @@ licepal <- rev(heat.colors(10, alpha = 0.5))
 
 # Lice location plots
 
-t5locsum <- t5melt %>%
+t1locsum <- t1melt %>%
   group_by(time, treatment, location) %>%
   dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
 
 # total lice plots
 
 # Large lumpfish
-licelocs <- data.frame(location = unique(t5locsum$location), 
-                       lice.m = t5locsum$mean.t[t5locsum$time == '0' & t5locsum$treatment == 'Large lumpfish'],
-                       lice.sd = t5locsum$sd.t[t5locsum$time == '0' & t5locsum$treatment == 'Large lumpfish'])
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.t[t1locsum$time == '0' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.t[t1locsum$time == '0' & t1locsum$treatment == 'Large lumpfish'])
 map.lice(licelocs, 8.83, T, T, 'Total No. lice')
 ll0 <- salplot
 

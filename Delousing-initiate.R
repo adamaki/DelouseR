@@ -24,12 +24,13 @@ library(cowplot)
 # FUNCTIONS----------------------------------------------------------------------------------------------------
 
 # function for mapping lice numbers to salmon image
-map.lice <- function(locations, maxlice, mvalues = T, sdvalues = T, leg = 'No. lice'){
+map.lice <- function(locations, maxlice, msdvalues = T, pvalues = T, leg = 'No. lice'){
   
   locations$bins <- as.numeric(cut(locations$lice.m, breaks = seq(-0.1, maxlice, 0.1), labels = seq(1, (maxlice+0.1)*10, 1)))
-  licepal <- rev(heat.colors((maxlice+0.1)*10, alpha = 0.5))
+  #licepal <- rev(heat.colors((maxlice+0.1)*10, alpha = 0.5))
+  licepal <- rev(gray.colors((maxlice+0.1)*10, start = 0.4, end = 0.95, gamma = 2.2))
   
-  salcol <- image_read('G:/Projects/Lumpfish delousing/Data/SalmonOutline.bmp')
+  salcol <- image_read('/Users/adambrooker/Dropbox/1-IoA/cleanerfish/Projects/SAIC Lumpfish/Delousing Trials/SalmonOutline.bmp')
   salcol <- if(locations$bins[[1]] > 0) {image_fill(salcol, licepal[[locations$bins[[1]]]], point = '+156+227', fuzz = 40)} else {salcol} #head
   salcol <- if(locations$bins[[2]] > 0) {image_fill(salcol, licepal[[locations$bins[[2]]]], point = '+299+124', fuzz = 40)} else {salcol} # front dorsal
   salcol <- if(locations$bins[[3]] > 0) {image_fill(salcol, licepal[[locations$bins[[3]]]], point = '+630+116', fuzz = 40)} else {salcol} # mid dorsal
@@ -45,56 +46,91 @@ map.lice <- function(locations, maxlice, mvalues = T, sdvalues = T, leg = 'No. l
   salcol <- if(locations$bins[[10]] > 0) {image_fill(salcol, licepal[[locations$bins[[10]]]], point = '+887+293', fuzz = 40)} else {salcol} # rear ventral (fin)
   salcol <- if(locations$bins[[11]] > 0) {image_fill(salcol, licepal[[locations$bins[[11]]]], point = '+1147+205', fuzz = 40)} else {salcol} # tail
   
-  if(mvalues == T){
-    if(sdvalues == T){
+  if(msdvalues == T){
+    if(pvalues == T){
       
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[1]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[1]], 1),nsmall = 1)), 
-                               size = 20, color = 'black', degrees = 0, location = '+156+215') # head
+                               paste0(format(round(locations$lice.m[[1]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[1]], 1),nsmall = 1), locations$lice.sig[[1]]), 
+                               size = 20, color = 'black', degrees = 0, location = '+136+215') # head
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[2]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[2]], 1),nsmall = 1)),
+                               paste0(format(round(locations$lice.m[[2]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[2]], 1),nsmall = 1), locations$lilce.sig[[2]]),
                                size = 20, color = 'black', degrees = -13, location = '+278+121') # dorsal front
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[3]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[3]], 1),nsmall = 1)), 
+                               paste0(format(round(locations$lice.m[[3]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[3]], 1),nsmall = 1), locations$lice.sig[[3]]), 
                                size = 20, color = 'black', degrees = 6, location = '+626+105') # dorsal middle
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[4]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[4]], 1),nsmall = 1)),
+                               paste0(format(round(locations$lice.m[[4]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[4]], 1),nsmall = 1), locations$lice.sig[[4]]),
                                size = 20, color = 'black', degrees = 7.5, location = '+906+139') # dorsal rear
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[5]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[5]], 1),nsmall = 1)),
+                               paste0(format(round(locations$lice.m[[5]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[5]], 1),nsmall = 1), locations$lice.sig[[5]]),
                                size = 20, color = 'black', degrees = 0, location = '+278+189') # flank front
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[6]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[6]], 1),nsmall = 1)),
+                               paste0(format(round(locations$lice.m[[6]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[6]], 1),nsmall = 1), locations$lice.sig[[6]]),
                                size = 20, color = 'black', degrees = 0, location = '+626+189') # flank middle
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[7]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[7]], 1),nsmall = 1)),
+                               paste0(format(round(locations$lice.m[[7]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[7]], 1),nsmall = 1), locations$lice.sig[[7]]),
                                size = 20, color = 'black', degrees = 0, location = '+906+189') # flank rear
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[8]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[8]], 1),nsmall = 1)),
-                               size = 20, color = 'black', degrees = 0, location = '+278+279') # ventral front
+                               paste0(format(round(locations$lice.m[[8]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[8]], 1),nsmall = 1), locations$lice.sig[[8]]),
+                               size = 20, color = 'black', degrees = 0, location = '+255+279') # ventral front
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[9]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[9]], 1),nsmall = 1)),
+                               paste0(format(round(locations$lice.m[[9]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[9]], 1),nsmall = 1), locations$lice.sig[[9]]),
                                size = 20, color = 'black', degrees = -8, location = '+626+306') # ventral middle
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[10]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[10]], 1),nsmall = 1)),
+                               paste0(format(round(locations$lice.m[[10]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[10]], 1),nsmall = 1), locations$lice.sig[[10]]),
                                size = 20, color = 'black', degrees = -9, location = '+906+236') # ventral rear
       salcol <- image_annotate(salcol, 
-                               paste0(format(round(locations$lice.m[[11]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[11]], 1),nsmall = 1)),
-                               size = 20, color = 'black', degrees = 0, location = '+1124+189') # tail
-    
+                               paste0(format(round(locations$lice.m[[11]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[11]], 1),nsmall = 1), locations$lice.sig[[11]]),
+                               size = 20, color = 'black', degrees = 0, location = '+1110+189') # tail
+      
+      
       } else {
         
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[1]], 1),nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+156+215')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[2]], 1), nsmall = 1), size = 20, color = 'black', degrees = -14, location = '+295+118')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[3]], 1), nsmall = 1), size = 20, color = 'black', degrees = 6, location = '+626+105')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[4]], 1), nsmall = 1), size = 20, color = 'black', degrees = 7.5, location = '+906+139')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[5]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+295+189')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[6]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+626+189')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[7]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+906+189')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[8]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+295+279')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[9]], 1), nsmall = 1), size = 20, color = 'black', degrees = -2, location = '+626+306')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[10]], 1), nsmall = 1), size = 20, color = 'black', degrees = -9, location = '+906+236')
-      salcol <- image_annotate(salcol, format(round(locations$lice.m[[11]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+1130+189')
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[1]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[1]], 1),nsmall = 1)), 
+                                 size = 20, color = 'black', degrees = 0, location = '+155+215') # head
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[2]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[2]], 1),nsmall = 1)),
+                                 size = 20, color = 'black', degrees = -13, location = '+278+121') # dorsal front
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[3]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[3]], 1),nsmall = 1)), 
+                                 size = 20, color = 'black', degrees = 6, location = '+626+105') # dorsal middle
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[4]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[4]], 1),nsmall = 1)),
+                                 size = 20, color = 'black', degrees = 7.5, location = '+906+139') # dorsal rear
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[5]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[5]], 1),nsmall = 1)),
+                                 size = 20, color = 'black', degrees = 0, location = '+278+189') # flank front
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[6]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[6]], 1),nsmall = 1)),
+                                 size = 20, color = 'black', degrees = 0, location = '+626+189') # flank middle
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[7]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[7]], 1),nsmall = 1)),
+                                 size = 20, color = 'black', degrees = 0, location = '+906+189') # flank rear
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[8]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[8]], 1),nsmall = 1)),
+                                 size = 20, color = 'black', degrees = 0, location = '+270+279') # ventral front
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[9]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[9]], 1),nsmall = 1)),
+                                 size = 20, color = 'black', degrees = -8, location = '+626+306') # ventral middle
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[10]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[10]], 1),nsmall = 1)),
+                                 size = 20, color = 'black', degrees = -9, location = '+906+236') # ventral rear
+        salcol <- image_annotate(salcol, 
+                                 paste0(format(round(locations$lice.m[[11]], 1),nsmall = 1), '\u00B1', format(round(locations$lice.sd[[11]], 1),nsmall = 1)),
+                                 size = 20, color = 'black', degrees = 0, location = '+1116+189') # tail
+        
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[1]], 1),nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+156+215')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[2]], 1), nsmall = 1), size = 20, color = 'black', degrees = -14, location = '+295+118')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[3]], 1), nsmall = 1), size = 20, color = 'black', degrees = 6, location = '+626+105')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[4]], 1), nsmall = 1), size = 20, color = 'black', degrees = 7.5, location = '+906+139')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[5]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+295+189')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[6]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+626+189')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[7]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+906+189')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[8]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+295+279')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[9]], 1), nsmall = 1), size = 20, color = 'black', degrees = -2, location = '+626+306')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[10]], 1), nsmall = 1), size = 20, color = 'black', degrees = -9, location = '+906+236')
+      #salcol <- image_annotate(salcol, format(round(locations$lice.m[[11]], 1), nsmall = 1), size = 20, color = 'black', degrees = 0, location = '+1130+189')
       
       }
     }
