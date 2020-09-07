@@ -112,7 +112,7 @@ t2data$treatment <- factor(t2data$treatment, levels(t2data$treatment)[c(1, 3, 2,
 # trial 1 plot
 t1means <- t1data.s %>%
   group_by(time, tank, treatment, replicate) %>%
-  dplyr::summarise(mean.m = mean(total.m), mean.m = mean(total.f), mean.t = mean(total.m + total.f))
+  dplyr::summarise(mean.m = mean(total.m), mean.f = mean(total.f), mean.t = mean(total.m + total.f))
 
 s.means <- filter(t1means, time == 0) %>%
   ungroup() %>%
@@ -124,7 +124,7 @@ t1means <- t1means %>%
 rm(s.means)
 
 t1means <- t1means %>%
-  dplyr::mutate(diff.m = (mean.m/start.m)*100, diff.f = (mean.m/start.f)*100, diff.t = (mean.t/start.t)*100)
+  dplyr::mutate(diff.m = (mean.m/start.m)*100, diff.f = (mean.f/start.f)*100, diff.t = (mean.t/start.t)*100)
   
 t1dec.p <- t1means %>%
   #t1means %>%
@@ -150,10 +150,13 @@ t1dec.p <- t1means %>%
   theme(legend.title = element_blank(), 
         text = element_text(size = 14))
 
+
+
+
 #trial 2 plot
 t2means <- t2data %>%
   group_by(time, tank, treatment, replicate) %>%
-  dplyr::summarise(mean.m = mean(total.m), mean.m = mean(total.f), mean.t = mean(total.m + total.f))
+  dplyr::summarise(mean.m = mean(total.m), mean.f = mean(total.f), mean.t = mean(total.m + total.f))
 
 s.means <- filter(t2means, time == 0) %>%
   ungroup() %>%
@@ -165,7 +168,7 @@ t2means <- t2means %>%
 rm(s.means)
 
 t2means <- t2means %>%
-  dplyr::mutate(diff.m = (mean.m/start.m)*100, diff.f = (mean.m/start.f)*100, diff.t = (mean.t/start.t)*100)
+  dplyr::mutate(diff.m = (mean.m/start.m)*100, diff.f = (mean.f/start.f)*100, diff.t = (mean.t/start.t)*100)
 
 t2dec.p <- t2means %>%
   group_by(time, treatment) %>%
@@ -219,6 +222,86 @@ t3dec.p <- #t3means %>%
 plot_grid(t1dec.p, t2dec.p, t3dec.p, labels = c('(a)', '(b)', '(c)'), hjust = c(-3.5, -3.5, -3.5), vjust = c(2, 2, 2))
 
   
+# Wrasse plot for Otter Ferry, just females//////////////////////////////////////////////////////////////
+
+# calculate percent means for t3 data already loaded
+t3means <- t3data %>%
+  group_by(time, tank, group, replicate) %>%
+  dplyr::summarise(mean.m = mean(total.m), mean.f = mean(total.f), mean.t = mean(total.m + total.f))
+
+s.means <- filter(t3means, time == 0) %>%
+  ungroup() %>%
+  select(-'time')
+colnames(s.means) <- c('tank', 'group', 'replicate', 'start.m', 'start.f', 'start.t')
+
+t3means <- t3means %>%
+  left_join(s.means, by = c('tank', 'group', 'replicate'))
+rm(s.means)
+
+t3means <- t3means %>%
+  dplyr::mutate(diff.m = (mean.m/start.m)*100, diff.f = (mean.f/start.f)*100, diff.t = (mean.t/start.t)*100)  
+
+t3means <- t3means %>% rename(treatment = group)
+t3means$treatment <- 'Individual wrasse'
+
+t1means$trial <- 'trial1-summer'
+t2means$trial <- 'trial2-cryptic'
+t3means$trial <- 'trial3-individual'
+
+# combine wrasse means from all trials
+wrassemeans <- bind_rows(t1means, t2means, t3means) %>%
+  select(trial, time, tank, treatment, replicate, mean.m, mean.f, mean.t) %>%
+  filter(treatment == 'Wrasse' | treatment == 'Wrasse cryptic' | treatment == 'Individual wrasse' | treatment == 'Control')
+
+wrassesummary <- wrassemeans %>%
+  group_by(trial, time, treatment) %>% 
+  summarise(males.m = mean(mean.m), males.sd = sd(mean.m), males.se = sd(mean.m)/sqrt(n()), 
+            females.m = mean(mean.f), females.sd = sd(mean.f), females.se = sd(mean.f)/sqrt(n()), 
+            total.m = mean(mean.t), total.sd = sd(mean.t), total.se = sd(mean.t)/sqrt(n()))
+
+write.csv(wrassesummary, 'wrassesummary.csv')
+
+wrassemeans$treatment <- dplyr::recode(wrassemeans$treatment, 'Wrasse' = 'Summer trial', 'Wrasse cryptic' = 'Cryptic trial', 'Individual wrasse' = 'Individual trial')
+
+wplot <- wrassemeans %>%
+  group_by(time, treatment) %>%
+  #  dplyr::summarise(mean_m = mean(diff.m), sd_m = sd(diff.m), mean_f = mean(diff.f), sd_f = sd(diff.f), total_mean = mean(diff.t), total_sd = sd(diff.t)) %>% # standard deviation
+  dplyr::summarise(mean_m = mean(diff.m), sd_m = sd(diff.m)/sqrt(3), mean_f = mean(diff.f), sd_f = sd(diff.f)/sqrt(3)) %>% # standard error
+  filter(treatment == 'Summer trial') %>%
+  gather(key = v, value = value, mean_m:sd_f) %>%
+  separate(col = v, into = c('stat', 'gender')) %>%
+  arrange(time) %>%
+  spread(stat, value) %>%
+  filter(gender == 'f') %>%
+  ggplot(aes(x = time, colour = treatment)) +
+  #geom_line(aes(y = mean, linetype = gender), size = 0.5) +
+  geom_line(aes(y = mean), size = 0.5) +
+  geom_point(aes(y = mean, shape = treatment, size = treatment)) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), width = 3, size = 0.5) +
+  scale_y_continuous(limits = c(0, 110), breaks = seq(0, 100, 10), name = 'No. of lice (%)', expand = c(0, 0)) +
+  #scale_x_continuous(limits = c(0, 150), breaks = c(0, 24, 48, 72, 96, 120, 144), labels = c('0', '24', '48', '72', '96' ,'120', '144'), name = 'Time (h)', expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 24, 48, 72, 96), labels = c('0', '24', '48', '72', '96'), name = 'Time (h)', expand = c(0, 0)) +
+  #ggtitle('Total lice') +
+  scale_shape_manual(name = 'treatment', values = c(0, 1, 17)) +
+  scale_size_manual(name = 'treatment', values = c(3, 3, 3)) +
+  #scale_linetype_manual(name = 'gender', values = c('dashed', 'dotted'), labels = c('\u2640', '\u2642')) +
+  scale_colour_manual(name = 'treatment', values = c('black', 'black', 'black')) +
+  theme_classic() +
+  theme(legend.title = element_blank(), 
+        text = element_text(size = 14),
+        plot.caption = element_text(hjust = 0)) +
+  theme(legend.position = 'none') +
+#  labs(title = 'Ballan wrasse delousing rates (adult female lice) in tanks',
+#       caption = 'Summer trial conducted in August 2019, n = 3 tanks, 30 salmon and 3 wrasse per tank (10% stocking ratio), \nmean salmon weight = 1200g, mean wrasse weight = 25g, mean 13.23 female lice per fish.
+#Cryptic trial conducted in October 2019, n = 3 tanks, 30 salmon and 3 wrasse per tank (10% stocking ratio) \nmean salmon weight = 452g, mean wrasse weight = 25g, mean 4.16 female lice per fish. 
+#Invidiual trial conducted in February 2020, n = 10 tanks, 10 salmon and 1 wrasse per tank (10% stocking ratio) \nmean salmon weight = 588g, mean wrasse weight 25g, mean 3.49 female lice per fish, bars = SD of tank means.')
+labs(title = 'Ballan wrasse delousing rates (adult female lice) in tanks',
+     caption = 'Trial conducted in August 2019, n = 3 tanks, 30 salmon and 3 wrasse per tank (10% stocking ratio), \nmean salmon weight = 1200g, mean wrasse weight = 25g, mean 13.23 female lice per fish, bars = SD of tank means.')
+
+
+#///////////////////////////////////////////////////////////////////////////////////
+
+
 # Figure 2. Delousing rates------------------------------------------
 
 # Trial 1 summer

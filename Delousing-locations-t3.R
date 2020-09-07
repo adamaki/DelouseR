@@ -149,11 +149,11 @@ totfemaleplot <- t3summ %>%
 
 # create summary dataset of T0 mean lice counts
 means <- t3data %>%
-  group_by(time, tank, replicate) %>%
+  group_by(time, tank, group) %>%
   dplyr::summarise(start.m = mean(total.m), start.f = mean(total.f), start.t = mean(total.m + total.f)) %>%
   filter(time == '0')
 
-t3data <- left_join(t3data, means[,c(2, 4:6)], by = 'tank') # Join mean T0 totals to raw dataset to compare delousing rate
+t3data <- left_join(t3data, means[,c(2, 4:5)], by = 'tank') # Join mean T0 totals to raw dataset to compare delousing rate
 
 t3data <- t3data %>% mutate(dec.m = (total.m/start.m)*100, dec.f = (total.f/start.f)*100, dec.t = (total/start.t)*100) # calculate delousing rate columns based on tank mean at T0
 

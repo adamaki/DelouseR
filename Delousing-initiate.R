@@ -20,6 +20,7 @@ library(forcats)
 library(RColorBrewer)
 library(tidyr)
 library(cowplot)
+library(viridis)
 
 # FUNCTIONS----------------------------------------------------------------------------------------------------
 
@@ -155,20 +156,20 @@ map.lice <- function(locations, maxlice, msdvalues = T, pvalues = T, leg = 'No. 
 
 # function to calculate fish headings from positions (outputs vector of fish headings)
 
-heading.func <- function(thresh){
+heading.func <- function(df, thresh){
   
-  IDS <- unique(tdat$ID)
+  IDS <- unique(df$ID)
   
   headvec <- numeric()
   
   for (j in 1:length(IDS)){
     
     heading <- numeric()
-    diffx <- diff(tdat$fish.rx[tdat$ID == IDS[[j]]])
-    #diffx <- diff(tdat$fish.rx[1:10])
+    diffx <- diff(df$fish.rx[df$ID == IDS[[j]]])
+    #diffx <- diff(df$fish.rx[1:10])
     
-    diffy <- diff(tdat$fish.ry[tdat$ID == IDS[[j]]])
-    #diffy <- diff(tdat$fish.ry[1:10])
+    diffy <- diff(df$fish.ry[df$ID == IDS[[j]]])
+    #diffy <- diff(df$fish.ry[1:10])
     diffy <- diffy * -1 # switch sign to account for origin in top left and not bottom left of image
     
   for (i in 1:length(diffx)){
