@@ -31,16 +31,16 @@ readinteger <- function(message = 'Not a number')
 workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse/C12-S' # change to location of data
 
 #lumpfish videos
-workingdir <- '/Users/adambrooker/OneDrive - University of Stirling/Lumpfish NO test/C4'
+workingdir <- '/Users/adambrooker/OneDrive - University of Stirling/Lumpfish NO test/C12'
 setwd(workingdir)
 
-inputfile <- 'C4'
+inputfile <- 'C12'
 files <- list.files(path = workingdir, pattern = inputfile, all.files = FALSE, recursive = FALSE)
 start <- 204 # start frame number
 end <- 303 # end frame number
 rotangle <- 3 # image rotation angle to translate image to cartesian grid
-xrange <- c(185,533) # x-axis crop dimensions
-yrange <- c(14, 361) # y-axis crop dimensions
+xrange <- c(153,499) # x-axis crop dimensions
+yrange <- c(16, 362) # y-axis crop dimensions
 
 centre <- c(174, 173) # coords for centre of tank in cropped and rotated image
 outrad <- 171 # radius of tank mask in pixels
@@ -48,7 +48,7 @@ cal1 <- c(4, 166) # location of 1st calibration marker in any image
 cal2 <- c(346, 166) # location of 2nd calibration marker in any image
 caldist <- 100 # real distance between calibration markers in cm
 nodims <- c(241, 186, 10) # dimensions of circle for novel object (x, y, r)
-rmask <- c(127, 154, 31, 66) # coordinates for masking light reflection (x1:x2, y1:y2)
+rmask <- c(141, 174, 27, 67) # coordinates for masking light reflection (x1:x2, y1:y2)
 noin <- F # toggle T/F for novel object in tank or not
 
 # image testing to refine rotating and cropping

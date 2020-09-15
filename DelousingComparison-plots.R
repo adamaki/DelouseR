@@ -105,6 +105,19 @@ t2data$total <- t2data$total.m + t2data$total.f
 t2data <- arrange(t2data, time, treatment, replicate) # arrange data
 t2data$treatment <- factor(t2data$treatment, levels(t2data$treatment)[c(1, 3, 2, 4)]) # change treatment order
 
+# Load trial 4 data and reformat---------------------------------
+t4data <- read.csv('/Users/adambrooker/Dropbox/1-IoA/cleanerfish/Projects/SAIC Lumpfish/Delousing Trials/T4 Winter/DelousingTrial4-winter.csv')
+
+t4data$time <- dplyr::recode(t4data$time, '1' = 0, '2' = 48, '3' = 96, '4' = 168)
+t4data$treatment <- dplyr::recode(t4data$treatment, 'Con' = 'Control', 'L' = 'Lumpfish', 'W' = 'Wrasse')
+t4data <- select(t4data, -weight_g, length_mm)
+
+t4data <- t4data %>% mutate(total.m = t4data %>% rowwise() %>% select(contains('.m')) %>% rowSums()) # new total male col
+t4data <- t4data %>% mutate(total.f = t4data %>% rowwise() %>% select(contains('.f')) %>% rowSums()) # new total female col
+t4data$total <- t4data$total.m + t4data$total.f
+
+t4data <- arrange(t4data, time, treatment, replicate) # arrange data
+
 
 
 # Figure 1. summarise % decrease in lice by time and group with rep as error and draw plot of total lice-----------
@@ -139,8 +152,8 @@ t1dec.p <- t1means %>%
   geom_line(aes(y = mean, linetype = gender), size = 0.5) +
   geom_point(aes(y = mean, shape = treatment, size = treatment)) +
   geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), width = 3, size = 0.5, position = 'dodge') +
-  scale_y_continuous(limits = c(0, 170), breaks = seq(0, 180, 10), name = 'No. of lice (%)', expand = c(0, 0)) +
-  scale_x_continuous(breaks = c(0, 24, 48, 72, 96), labels = c('0', '24', '48', '72', '96'), name = 'Time (h)', expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 170), breaks = seq(0, 170, 10), name = 'No. of lice (%)', expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 24, 48, 72, 96), labels = c('0', '24', '48', '72', '96'), name = 'Time (h)', expand = c(0, 0)) +
   #ggtitle('Total lice') +
   scale_shape_manual(name = 'treatment', values = c(0, 16, 16, 17)) +
   scale_size_manual(name = 'treatment', values = c(3, 3.5, 2, 3)) +
@@ -149,8 +162,6 @@ t1dec.p <- t1means %>%
   theme_classic() +
   theme(legend.title = element_blank(), 
         text = element_text(size = 14))
-
-
 
 
 #trial 2 plot
@@ -183,7 +194,7 @@ t2dec.p <- t2means %>%
   geom_point(aes(y = mean, shape = treatment, size = treatment)) +
   geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), width = 3, size = 0.5, position = 'dodge') +
   scale_y_continuous(limits = c(0, 130), breaks = seq(0, 130, 10), name = 'No. of lice (%)', expand = c(0, 0)) +
-  scale_x_continuous(breaks = c(0, 48, 96, 168), labels = c('0', '48', '96', '168'), name = 'Time (h)', expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 172), breaks = c(0, 48, 96, 172), labels = c('0', '48', '96', '168'), name = 'Time (h)', expand = c(0, 0)) +
   #ggtitle('Total lice') +
   scale_shape_manual(name = 'treatment', values = c(0, 1, 16, 2)) +
   scale_size_manual(name = 'treatment', values = c(3.5, 3, 3.5, 3)) +
@@ -193,23 +204,37 @@ t2dec.p <- t2means %>%
   theme(legend.title = element_blank(), 
         text = element_text(size = 14))
 
-#trial 3 plot
+#trial 4 plot
+t4means <- t4data %>%
+  group_by(time, tank, treatment, replicate) %>%
+  dplyr::summarise(mean.m = mean(total.m), mean.f = mean(total.f), mean.t = mean(total.m + total.f))
 
-t3dec.p <- #t3means %>%
-  #group_by(time, treatment) %>%
+s.means <- filter(t4means, time == 0) %>% # extract df of mean lice at start of trial
+  ungroup() %>%
+  select(-'time')
+colnames(s.means) <- c('tank', 'treatment', 'replicate', 'start.m', 'start.f', 'start.t')
+
+t4means <- t4means %>% # Add new columns of starting mean values to df
+  left_join(s.means, by = c('tank', 'treatment', 'replicate'))
+rm(s.means)
+
+t4means <- t4means %>% # calculate columns of % change in lice since start
+  dplyr::mutate(diff.m = (mean.m/start.m)*100, diff.f = (mean.f/start.f)*100, diff.t = (mean.t/start.t)*100)
+
+t4dec.p <- t4means %>%
+  group_by(time, treatment) %>%
   #  dplyr::summarise(mean_m = mean(diff.m), sd_m = sd(diff.m), mean_f = mean(diff.f), sd_f = sd(diff.f), total_mean = mean(diff.t), total_sd = sd(diff.t)) %>% # standard deviation
-  #dplyr::summarise(mean_m = mean(diff.m), sd_m = sd(diff.m)/sqrt(3), mean_f = mean(diff.f), sd_f = sd(diff.f)/sqrt(3)) %>% # standard error
-  #gather(key = v, value = value, mean_m:sd_f) %>%
-  #separate(col = v, into = c('stat', 'gender')) %>%
-  #arrange(time) %>%
-  #spread(stat, value) %>%
-  #ggplot(aes(x = time, colour = treatment)) +
-  ggplot() +
-  #geom_line(aes(y = mean, linetype = gender), size = 0.5) +
-  #geom_point(aes(y = mean, shape = treatment, size = treatment)) +
-  #geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), width = 3, size = 0.5, position = 'dodge') +
-  scale_y_continuous(limits = c(0, 130), breaks = seq(0, 130, 10), name = 'No. of lice (%)', expand = c(0, 0)) +
-  scale_x_continuous(limits = c(0, 168), breaks = c(0, 48, 96, 168), labels = c('0', '48', '96', '168'), name = 'Time (h)', expand = c(0, 0)) +
+  dplyr::summarise(mean_m = mean(diff.m), sd_m = sd(diff.m)/sqrt(3), mean_f = mean(diff.f), sd_f = sd(diff.f)/sqrt(3)) %>% # standard error
+  gather(key = v, value = value, mean_m:sd_f) %>%
+  separate(col = v, into = c('stat', 'gender')) %>%
+  arrange(time) %>%
+  spread(stat, value) %>%
+  ggplot(aes(x = time, colour = treatment)) +
+  geom_line(aes(y = mean, linetype = gender), size = 0.5) +
+  geom_point(aes(y = mean, shape = treatment, size = treatment)) +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), width = 3, size = 0.5, position = 'dodge') +
+  scale_y_continuous(limits = c(0, 140), breaks = seq(0, 140, 10), name = 'No. of lice (%)', expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 172), breaks = c(0, 48, 96, 168), labels = c('0', '48', '96', '168'), name = 'Time (h)', expand = c(0, 0)) +
   #ggtitle('Total lice') +
   scale_shape_manual(name = 'treatment', values = c(0, 1, 16, 2)) +
   scale_size_manual(name = 'treatment', values = c(3.5, 3, 3.5, 3)) +
@@ -219,7 +244,7 @@ t3dec.p <- #t3means %>%
   theme(legend.title = element_blank(), 
         text = element_text(size = 14))
 
-plot_grid(t1dec.p, t2dec.p, t3dec.p, labels = c('(a)', '(b)', '(c)'), hjust = c(-3.5, -3.5, -3.5), vjust = c(2, 2, 2))
+plot_grid(t1dec.p, t2dec.p, t4dec.p, labels = c('(a)', '(b)', '(c)'), hjust = c(-3.5, -3.5, -3.5), vjust = c(2, 2, 2))
 
   
 # Wrasse plot for Otter Ferry, just females//////////////////////////////////////////////////////////////
@@ -326,7 +351,7 @@ dplot.t1 <- t1dec %>%
   ggplot(aes(x = time, fill = dprop.t)) +
   geom_bar(position = 'fill', stat = 'count') +
   scale_x_discrete(name = 'Time (h)', expand = c(0, 0)) +
-  scale_y_continuous(name = 'Proportion of salmon (%)', labels = scales::percent, expand = c(0, 0)) +
+  scale_y_continuous(name = 'Proportion of salmon', labels = scales::percent, expand = c(0, 0)) +
   facet_wrap(~treatment) +
   scale_fill_manual(values = delousepal, name = 'Lice per fish') +
   theme_classic() +
@@ -355,7 +380,7 @@ dplot.t2 <- t2data %>%
   ggplot(aes(x = time, fill = dprop.t)) +
   geom_bar(position = 'fill', stat = 'count') +
   scale_x_discrete(name = 'Time (h)', expand = c(0, 0)) +
-  scale_y_continuous(name = 'Proportion of salmon (%)', labels = scales::percent, expand = c(0, 0)) +
+  scale_y_continuous(name = 'Proportion of salmon', labels = scales::percent, expand = c(0, 0)) +
   facet_wrap(~treatment) +
   scale_fill_manual(values = delousepal, name = 'Lice per fish') +
   theme_classic() +
@@ -363,16 +388,30 @@ dplot.t2 <- t2data %>%
         text = element_text(size = 14), 
         legend.position = 'none')
 
-# Trial 3 winter
+# Trial 4 winter
+means <- t4data %>%
+  group_by(time, tank, treatment, replicate) %>%
+  dplyr::summarise(start.m = mean(total.m), start.f = mean(total.f), start.t = mean(total.m + total.f)) %>%
+  filter(time == '0')
 
-dplot.t3 <- #t3data %>%
-  #filter(treatment != 'Control') %>%
-  #ggplot(aes(x = time, fill = dprop.t)) +
-  ggplot() +
+t4dec <- left_join(t4data, means[,c(2, 5:7)], by = 'tank') # Join mean T0 totals to raw dataset to compare delousing rate
+t4dec <- t4dec %>% mutate(dec.m = (total.m/start.m)*100, dec.f = (total.f/start.f)*100, dec.t = (total/start.t)*100) # calculate delousing rate columns based on tank mean at T0
+
+t4dec$dprop.t <- cut(t4dec$dec.t, breaks = c(-1, seq(10, 100, 10), 800), 
+                     labels = (c('0-10%', '10-20%', '20-30%', '30-40%', '40-50%', '50-60%', '60-70%', '70-80%', '80-90%', '90-100%', '100%+')))
+
+t4dec$time <- as.factor(t4dec$time)
+#choose_palette()
+#delousepal <- rev(sequential_hcl(11, h = 245, c = c(81, 14), l = c(34, 93), 1.1)) # blue palette
+delousepal <- rev(sequential_hcl(11, h = 245, c = c(0, 0), l = c(17, 93), 1.1)) # grey palette
+
+dplot.t4 <- t4dec %>%
+  filter(treatment != 'Control') %>%
+  ggplot(aes(x = time, fill = dprop.t)) +
   geom_bar(position = 'fill', stat = 'count') +
   scale_x_discrete(name = 'Time (h)', expand = c(0, 0)) +
-  scale_y_continuous(name = 'Proportion of salmon (%)', labels = scales::percent, expand = c(0, 0)) +
-  #facet_wrap(~treatment) +
+  scale_y_continuous(name = 'Proportion of salmon', labels = scales::percent, expand = c(0, 0)) +
+  facet_wrap(~treatment) +
   scale_fill_manual(values = delousepal, name = 'Lice per fish') +
   theme_classic() +
   theme(strip.background = element_rect(color = 'white', fill = "white"),
@@ -382,15 +421,13 @@ dplot.t3 <- #t3data %>%
 dplot.legend <- get_legend(dplot.t1)
 dplot.t1 <- dplot.t1 + theme(legend.position = 'none')
 
-plot_grid(dplot.t1, dplot.t2, dplot.t3,
-          plot_grid(dplot.legend,
-                    ncol = 3,
-                    nrow = 1),
-          ncol = 2,
-          nrow = 2,
-          labels = c('(a)', '(b)', '(c)'), 
-          hjust = c(-26.6, -25.3, -26.8), 
-          vjust = c(1.8, 1.8, 1.8))
+plot_grid(plot_grid(dplot.t1, dplot.legend, '', ncol = 3, nrow = 1, rel_widths = c(0.7, 0.15, 0.15), labels = c('(a)')),
+          plot_grid(dplot.t2, dplot.t4, ncol = 2, nrow = 1, rel_widths = c(0.58, 0.42), labels = c('(b)', '(c)')),
+          ncol = 1,
+          nrow = 2)
+          #labels = c('(a)', '(b)', '(c)'), 
+          #hjust = c(-26.6, -25.3, -26.8), 
+          #vjust = c(1.8, 1.8, 1.8))
 
 # Figure 3. Fish maps of start and end of trial----------------------------------------
 
@@ -659,3 +696,87 @@ plot_grid(
             vjust = 3.5, hjust = -0.1, label_size = 11),
   liceleg, ncol = 1, nrow = 2, rel_heights = c(0.92, 0.08))
 
+
+# Statistics for the paper---------------------------------------------------------------------
+
+# one-way anova to test for differences within replicate treatment tanks
+anova <- t1data.s %>%
+  #filter(time == '96') %>%
+  filter(treatment == 'Wrasse') %>%
+  aov(data = ., formula = total.m~replicate)
+summary(anova)
+
+# one-way anova to compare lice numbers to control at each time point
+anova <- t1data.s %>%
+  filter(time == '96') %>%
+  filter(treatment == 'Control' | treatment == 'Large lumpfish') %>%
+  aov(data = ., formula = total.m~treatment)
+summary(anova)
+
+# two-way anova to compare lice numbers to control over time
+anova <- t1data.s %>%
+  filter(treatment == 'Control' | treatment == 'Wrasse') %>%
+  aov(data = ., formula = total~treatment*time)
+summary(anova)
+
+# two-way nested anova
+# https://www.researchgate.net/post/How_do_I_compare_2_different_groups_control_vs_treatment_over_time_And_how_do_I_see_at_what_moment_in_time_they_become_sign_different
+# nested factors: treatment < replicate < time
+t1data.s$time <- as.factor(t1data.s$time)
+t1data.s$replicate <- as.factor(t1data.s$replicate)
+
+anova <- t1data.s %>%
+  aov(data = ., formula = total.f~treatment+treatment:replicate+replicate:time)
+  #aov(data = ., formula = total.f~treatment:replicate:time)
+summary(anova)
+
+TukeyHSD(anova)
+
+# Repeated measures linear mixed-effects model with nested replicate tanks
+# https://rcompanion.org/handbook/I_09.html
+library(nlme)
+
+model <- t1data.s %>%
+  group_by(time, tank, treatment, replicate) %>%
+  dplyr::summarise(mean.m = mean(total.m), mean.f = mean(total.f), mean.t = mean(total)) %>%
+  ungroup() %>%
+  mutate(time = as.numeric(time)) %>%
+  lme(mean.f ~ treatment + time + treatment*time, 
+            random = ~1|tank,
+            correlation = corAR1(form = ~ time | tank,
+                                 value = 0.6273),
+            data = .,
+            method = "REML")
+
+# determine autocorrelation structure
+ACF(model) # enter lag 1 value into corAR1 value and recalculate lme
+
+library(car)
+
+Anova(model)
+
+# test random effects in the model
+model.fixed <- t1data.s %>%
+  group_by(time, tank, treatment, replicate) %>%
+  dplyr::summarise(mean.m = mean(total.m), mean.f = mean(total.f), mean.t = mean(total)) %>%
+  ungroup() %>%
+  mutate(time = as.numeric(time)) %>%
+  gls(mean.f ~ treatment + time + treatment*time,
+                  data = .,
+                  method="REML")
+
+anova(model,
+      model.fixed)
+
+# post-hoc analysis
+library(multcomp)
+library(multcompView)
+library(lsmeans)
+
+marginal <- lsmeans(model, 
+                   ~ treatment:time)
+
+cld(marginal,
+    alpha   = 0.2, 
+    Letters = letters,     ### Use lower-case letters for .group
+    adjust  = "tukey")     ###  Tukey-adjusted comparisons

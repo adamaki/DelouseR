@@ -134,6 +134,8 @@ tdat$eye <- ifelse(is.na(tdat$cmsec), NA, tdat$eye) # change 1st row of each fis
 
 tdat$move_eye <- ifelse(is.na(tdat$eye), NA, paste0(tdat$move, '_', tdat$eye)) # new column for moving and static left and right eye
 
+tdat$phase <- 'NO'
+
 # Calculate instantaneous variables for acclimation phase---------------------
 
 # calculate velocity
@@ -152,6 +154,8 @@ rm(headvec)
 tdatac$dir <- ifelse(is.na(tdatac$cmsec), NA, tdatac$dir) # change 1st row of each fish back to NA
 
 tdatac$move <- ifelse(is.na(tdatac$cmsec), NA, ifelse(is.na(tdatac$head), 'S', 'M')) # column for fish moving static or moving
+
+tdatac$phase <- 'Acc'
 
 
 # Calculate percent lice reduction from starting number of lice at each time point-----------------
@@ -907,6 +911,18 @@ bsum %>%
   scale_fill_discrete(name = 'Delousing ability')
 
 # Comparison plots of acclimation and novel object phases----------------------
+
+# Plot fish tracks with tank and novel object outlines
+tdat %>% bind_rows(tdatac) %>%
+ggplot(aes(x = fish.rx, y = fish.ry, colour = phase)) +
+  geom_path(size = 0.4) +
+  scale_y_reverse(name = 'cm') +
+  scale_x_continuous(name = 'cm') +
+  scale_color_discrete(labels = c('Acclimation', 'Test')) +
+  facet_wrap(~ID) +
+  annotate("path", x = 50+50*cos(seq(0,2*pi,length.out=100)), y = 50+50*sin(seq(0,2*pi,length.out=100)), colour = 'blue') + # draw tank circle
+  annotate('rect', xmin = 68, xmax = 73.5, ymin = 47.5, ymax = 53) + # draw novel object
+  theme_classic()
 
 # Change in mean velocity
 csum %>%
