@@ -6,7 +6,7 @@ source('/Users/adambrooker/R Projects/DelouseR/Delousing-initiate.R')
 
 # Load and reformat T1 summer temperature trial ---------------------------------------
 workingdir <- ifelse(Sys.info()['user'] == 'Laptop', 'G:/Projects/Lumpfish delousing/Data/T1 Summer', 
-                     '/Users/adambrooker/Dropbox/1-IoA/cleanerfish/Projects/SAIC Lumpfish/Delousing Trials/T1 Summer') # change to location of data
+                     '/Users/adambrooker/Dropbox/1-IoA/Projects/SAIC Lumpfish/Delousing Trials/T1 Summer') # change to location of data
 setwd(workingdir)
 
 t1data <- read.csv('t1summerdata.csv')
@@ -244,7 +244,7 @@ dplot.t <- t5data %>%
 #----------------------------------------------------------------
 # magick testing
 
-salout <- image_read('G:/Projects/Lumpfish delousing/Data/SalmonOutline.bmp')
+salout <- image_read('/Users/adambrooker/Dropbox/1-IoA/Projects/SAIC Lumpfish/Delousing Trials')
 #salout <- image_convert(salout, 'svg')
 
 #choose_palette()
@@ -260,6 +260,8 @@ licepal <- rev(heat.colors(10, alpha = 0.5))
 t1locsum <- t1melt %>%
   group_by(time, treatment, location) %>%
   dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
+
+
 
 # total lice plots
 
@@ -288,9 +290,9 @@ licelocs <- data.frame(location = unique(t5locsum$location),
 map.lice(licelocs, 8.83, T, T, 'Total No. lice')
 ll72 <- salplot
 
-licelocs <- data.frame(location = unique(t5locsum$location), 
-                       lice.m = t5locsum$mean.t[t5locsum$time == '96' & t5locsum$treatment == 'Large lumpfish'],
-                       lice.sd = t5locsum$sd.t[t5locsum$time == '96' & t5locsum$treatment == 'Large lumpfish'])
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.t[t1locsum$time == '96' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.t[t1locsum$time == '96' & t1locsum$treatment == 'Large lumpfish'])
 map.lice(licelocs, 8.83, T, T, 'Total No. lice')
 ll96 <- salplot
 
@@ -387,7 +389,34 @@ wplot <- plot_grid(wtitle, w0, w24, w48, w72, w96, nrow = 7, ncol = 1, rel_heigh
 
 plot_grid(slplot, llplot, wplot, nrow = 1, ncol = 3)
 
+
 # Female lice plots
+
+# subset by treatment, calculate anovas between 0h and 96h for each location and reassemble results as df
+aov.results <- data.frame()
+for(f in 1:length(unique(t1melt$treatment))){
+  
+  datf <- filter(t1melt, t1melt$treatment == unique(t1melt$treatment)[[f]])
+  
+  modobj <- datf %>% group_by(location) %>% do(model = aov(female~time, data = .)) # apply aov to each location with time as factor and create df of aov models
+  modobj$summary <- lapply(modobj$model, summary) # new column of model summaries
+  modobj$p <- unlist(lapply(modobj$summary, function(x) x[[1]]$'Pr(>F)'[1])) # extract p-values from summaries and add to new column
+  modobj$p <- ifelse(is.nan(modobj$p), 1, modobj$p) # change NaNs to 1
+  modobj$sig <- ifelse(modobj$p < 0.001, '***', ifelse(modobj$p < 0.01, '**', ifelse(modobj$p < 0.05, '*', ''))) # calculate significance and add to new column
+  modobj <- select(modobj, -model, -summary)
+  modobj$time <- factor(96, levels = c(0, 24, 48, 72, 96))
+  modobj$treatment <- unique(t1melt$treatment)[[f]]
+  
+  aov.results <- bind_rows(aov.results, modobj)
+}
+
+t1locsum <- left_join(t1locsum, aov.results, by = c('time', 'treatment', 'location'))
+rm(datf, modobj, aov.results)
+t1locsum$p <- ifelse(is.na(t1locsum$p), '', t1locsum$p)
+t1locsum$sig <- ifelse(is.na(t1locsum$sig), '', t1locsum$sig)
+
+
+
 
 # Large lumpfish
 licelocs <- data.frame(location = unique(t5locsum$location), 
@@ -640,3 +669,581 @@ wplot <- plot_grid(wtitle, w0, w24, w48, w72, w96, nrow = 7, ncol = 1, rel_heigh
 plot_grid(slplot, llplot, wplot, nrow = 1, ncol = 3)
 
 
+# Fish map location plots for EAS 2021------------------------------------------------
+
+#24h female plots
+t1melt.sub <- filter(t1melt, time == 0 | time == 24)
+
+t1locsum <- t1melt.sub %>%
+  group_by(time, treatment, location) %>%
+  dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
+
+# subset by treatment, calculate anovas between 0h and 24h for each location and reassemble results as df
+aov.results <- data.frame()
+for(f in 1:length(unique(t1melt.sub$treatment))){
+  
+  datf <- filter(t1melt.sub, t1melt.sub$treatment == unique(t1melt.sub$treatment)[[f]])
+  
+  modobj <- datf %>% group_by(location) %>% do(model = aov(female~time, data = .)) # apply aov to each location with time as factor and create df of aov models
+  modobj$summary <- lapply(modobj$model, summary) # new column of model summaries
+  modobj$p <- unlist(lapply(modobj$summary, function(x) x[[1]]$'Pr(>F)'[1])) # extract p-values from summaries and add to new column
+  modobj$p <- ifelse(is.nan(modobj$p), 1, modobj$p) # change NaNs to 1
+  modobj$sig <- ifelse(modobj$p < 0.001, '***', ifelse(modobj$p < 0.01, '**', ifelse(modobj$p < 0.05, '*', ''))) # calculate significance and add to new column
+  modobj <- select(modobj, -model, -summary)
+  modobj$time <- factor(24, levels = c(0, 24, 48, 72, 96))
+  modobj$treatment <- unique(t1melt.sub$treatment)[[f]]
+  
+  aov.results <- bind_rows(aov.results, modobj)
+}
+
+t1locsum <- left_join(t1locsum, aov.results, by = c('time', 'treatment', 'location'))
+rm(datf, modobj, aov.results)
+t1locsum$p <- ifelse(is.na(t1locsum$p), '', t1locsum$p)
+t1locsum$sig <- ifelse(is.na(t1locsum$sig), '', t1locsum$sig)
+
+# lice maps
+
+# lumpfish small
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '0' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '0' & t1locsum$treatment == 'Small lumpfish'])
+map.lice(licelocs, 6.5, T, F, 'Mean lice')
+slf0 <- salplot
+
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '24' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '24' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '24' & t1locsum$treatment == 'Small lumpfish'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+slf24 <- salplot
+
+slftitle <- ggdraw() +
+  draw_label('Small Lumpfish', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+
+# Large lumpfish
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '0' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '0' & t1locsum$treatment == 'Large lumpfish'])
+map.lice(licelocs, 6.5, T, F, 'Mean lice')
+llf0 <- salplot
+
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '24' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '24' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '24' & t1locsum$treatment == 'Large lumpfish'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+llf24 <- salplot
+
+llftitle <- ggdraw() +
+  draw_label('Large lumpfish', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+
+# Wrasse
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '0' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '0' & t1locsum$treatment == 'Wrasse'])
+map.lice(licelocs, 6.5, T, F, 'Mean lice')
+wf0 <- salplot
+
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '24' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '24' & t1locsum$treatment == 'Wrasse'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '24' & t1locsum$treatment == 'Wrasse'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+wf24 <- salplot
+
+wftitle <- ggdraw() +
+  draw_label('Wrasse', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+
+
+#48h female plots
+t1melt.sub <- filter(t1melt, time == 0 | time == 48)
+
+t1locsum <- t1melt.sub %>%
+  group_by(time, treatment, location) %>%
+  dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
+
+# subset by treatment, calculate anovas between 0h and 48h for each location and reassemble results as df
+aov.results <- data.frame()
+for(f in 1:length(unique(t1melt.sub$treatment))){
+  
+  datf <- filter(t1melt.sub, t1melt.sub$treatment == unique(t1melt.sub$treatment)[[f]])
+  
+  modobj <- datf %>% group_by(location) %>% do(model = aov(female~time, data = .)) # apply aov to each location with time as factor and create df of aov models
+  modobj$summary <- lapply(modobj$model, summary) # new column of model summaries
+  modobj$p <- unlist(lapply(modobj$summary, function(x) x[[1]]$'Pr(>F)'[1])) # extract p-values from summaries and add to new column
+  modobj$p <- ifelse(is.nan(modobj$p), 1, modobj$p) # change NaNs to 1
+  modobj$sig <- ifelse(modobj$p < 0.001, '***', ifelse(modobj$p < 0.01, '**', ifelse(modobj$p < 0.05, '*', ''))) # calculate significance and add to new column
+  modobj <- select(modobj, -model, -summary)
+  modobj$time <- factor(48, levels = c(0, 24, 48, 72, 96))
+  modobj$treatment <- unique(t1melt.sub$treatment)[[f]]
+  
+  aov.results <- bind_rows(aov.results, modobj)
+}
+
+t1locsum <- left_join(t1locsum, aov.results, by = c('time', 'treatment', 'location'))
+rm(datf, modobj, aov.results)
+t1locsum$p <- ifelse(is.na(t1locsum$p), '', t1locsum$p)
+t1locsum$sig <- ifelse(is.na(t1locsum$sig), '', t1locsum$sig)
+
+# lice maps
+
+# lumpfish small
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '48' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '48' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '48' & t1locsum$treatment == 'Small lumpfish'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+slf48 <- salplot
+
+# Large lumpfish
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '48' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '48' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '48' & t1locsum$treatment == 'Large lumpfish'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+llf48 <- salplot
+
+# Wrasse
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '48' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '48' & t1locsum$treatment == 'Wrasse'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '48' & t1locsum$treatment == 'Wrasse'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+wf48 <- salplot
+
+
+#72h female plots
+t1melt.sub <- filter(t1melt, time == 0 | time == 72)
+
+t1locsum <- t1melt.sub %>%
+  group_by(time, treatment, location) %>%
+  dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
+
+# subset by treatment, calculate anovas between 0h and 72h for each location and reassemble results as df
+aov.results <- data.frame()
+for(f in 1:length(unique(t1melt.sub$treatment))){
+  
+  datf <- filter(t1melt.sub, t1melt.sub$treatment == unique(t1melt.sub$treatment)[[f]])
+  
+  modobj <- datf %>% group_by(location) %>% do(model = aov(female~time, data = .)) # apply aov to each location with time as factor and create df of aov models
+  modobj$summary <- lapply(modobj$model, summary) # new column of model summaries
+  modobj$p <- unlist(lapply(modobj$summary, function(x) x[[1]]$'Pr(>F)'[1])) # extract p-values from summaries and add to new column
+  modobj$p <- ifelse(is.nan(modobj$p), 1, modobj$p) # change NaNs to 1
+  modobj$sig <- ifelse(modobj$p < 0.001, '***', ifelse(modobj$p < 0.01, '**', ifelse(modobj$p < 0.05, '*', ''))) # calculate significance and add to new column
+  modobj <- select(modobj, -model, -summary)
+  modobj$time <- factor(72, levels = c(0, 24, 48, 72, 96))
+  modobj$treatment <- unique(t1melt.sub$treatment)[[f]]
+  
+  aov.results <- bind_rows(aov.results, modobj)
+}
+
+t1locsum <- left_join(t1locsum, aov.results, by = c('time', 'treatment', 'location'))
+rm(datf, modobj, aov.results)
+t1locsum$p <- ifelse(is.na(t1locsum$p), '', t1locsum$p)
+t1locsum$sig <- ifelse(is.na(t1locsum$sig), '', t1locsum$sig)
+
+# lice maps
+
+# lumpfish small
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '72' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '72' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '72' & t1locsum$treatment == 'Small lumpfish'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+slf72 <- salplot
+
+# Large lumpfish
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '72' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '72' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '72' & t1locsum$treatment == 'Large lumpfish'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+llf72 <- salplot
+
+# Wrasse
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '72' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '72' & t1locsum$treatment == 'Wrasse'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '72' & t1locsum$treatment == 'Wrasse'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+wf72 <- salplot
+
+#96h female plots
+t1melt.sub <- filter(t1melt, time == 0 | time == 96)
+
+t1locsum <- t1melt.sub %>%
+  group_by(time, treatment, location) %>%
+  dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
+
+# subset by treatment, calculate anovas between 0h and 96h for each location and reassemble results as df
+aov.results <- data.frame()
+for(f in 1:length(unique(t1melt.sub$treatment))){
+  
+  datf <- filter(t1melt.sub, t1melt.sub$treatment == unique(t1melt.sub$treatment)[[f]])
+  
+  modobj <- datf %>% group_by(location) %>% do(model = aov(female~time, data = .)) # apply aov to each location with time as factor and create df of aov models
+  modobj$summary <- lapply(modobj$model, summary) # new column of model summaries
+  modobj$p <- unlist(lapply(modobj$summary, function(x) x[[1]]$'Pr(>F)'[1])) # extract p-values from summaries and add to new column
+  modobj$p <- ifelse(is.nan(modobj$p), 1, modobj$p) # change NaNs to 1
+  modobj$sig <- ifelse(modobj$p < 0.001, '***', ifelse(modobj$p < 0.01, '**', ifelse(modobj$p < 0.05, '*', ''))) # calculate significance and add to new column
+  modobj <- select(modobj, -model, -summary)
+  modobj$time <- factor(96, levels = c(0, 24, 48, 72, 96))
+  modobj$treatment <- unique(t1melt.sub$treatment)[[f]]
+  
+  aov.results <- bind_rows(aov.results, modobj)
+}
+
+t1locsum <- left_join(t1locsum, aov.results, by = c('time', 'treatment', 'location'))
+rm(datf, modobj, aov.results)
+t1locsum$p <- ifelse(is.na(t1locsum$p), '', t1locsum$p)
+t1locsum$sig <- ifelse(is.na(t1locsum$sig), '', t1locsum$sig)
+
+# lice maps
+
+# lumpfish small
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '96' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '96' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '96' & t1locsum$treatment == 'Small lumpfish'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+slf96 <- salplot
+
+# Large lumpfish
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '96' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '96' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '96' & t1locsum$treatment == 'Large lumpfish'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+llf96 <- salplot
+
+# Wrasse
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.f[t1locsum$time == '96' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.f[t1locsum$time == '96' & t1locsum$treatment == 'Wrasse'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '96' & t1locsum$treatment == 'Wrasse'])
+
+map.lice(licelocs, 6.5, T, T, 'Mean lice')
+wf96 <- salplot
+
+T0title <- ggdraw() +
+  draw_label('0h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+T24title <- ggdraw() +
+  draw_label('24h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+T48title <- ggdraw() +
+  draw_label('48h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+T72title <- ggdraw() +
+  draw_label('72h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+T96title <- ggdraw() +
+  draw_label('96h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+
+# All treatments plot female
+slfplot <- plot_grid(slftitle, slf0, slf24, slf48, slf72, slf96, nrow = 7, ncol = 1, rel_heights = c(0.05, rep(0.17, 5), 0.1), 
+                    labels = c('', ' 0h', '24h', '48h', '72h', '96h'), label_size = 12, vjust = 4, hjust = -2)
+
+llfplot <- plot_grid(llftitle, llf0, llf24, llf48, llf72, llf96, liceleg, nrow = 7, ncol = 1, rel_heights = c(0.05, rep(0.17, 5), 0.1), 
+                    labels = c('', ' 0h', '24h', '48h', '72h', '96h'), label_size = 12, vjust = 4, hjust = -2)
+
+wfplot <- plot_grid(wftitle, wf0, wf24, wf48, wf72, wf96, nrow = 7, ncol = 1, rel_heights = c(0.05, rep(0.17, 5), 0.1), 
+                   labels = c('', ' 0h', '24h', '48h', '72h', '96h'), label_size = 12, vjust = 4, hjust = -2)
+
+plot_grid(slfplot, llfplot, wfplot, nrow = 1, ncol = 3)
+
+#---------------------------------------------------------------------------------------------------------------------------------
+#24h male plots
+t1melt.sub <- filter(t1melt, time == 0 | time == 24)
+
+t1locsum <- t1melt.sub %>%
+  group_by(time, treatment, location) %>%
+  dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
+
+# subset by treatment, calculate anovas between 0h and 24h for each location and reassemble results as df
+aov.results <- data.frame()
+for(f in 1:length(unique(t1melt.sub$treatment))){
+  
+  datf <- filter(t1melt.sub, t1melt.sub$treatment == unique(t1melt.sub$treatment)[[f]])
+  
+  modobj <- datf %>% group_by(location) %>% do(model = aov(male~time, data = .)) # apply aov to each location with time as factor and create df of aov models
+  modobj$summary <- lapply(modobj$model, summary) # new column of model summaries
+  modobj$p <- unlist(lapply(modobj$summary, function(x) x[[1]]$'Pr(>F)'[1])) # extract p-values from summaries and add to new column
+  modobj$p <- ifelse(is.nan(modobj$p), 1, modobj$p) # change NaNs to 1
+  modobj$sig <- ifelse(modobj$p < 0.001, '***', ifelse(modobj$p < 0.01, '**', ifelse(modobj$p < 0.05, '*', ''))) # calculate significance and add to new column
+  modobj <- select(modobj, -model, -summary)
+  modobj$time <- factor(24, levels = c(0, 24, 48, 72, 96))
+  modobj$treatment <- unique(t1melt.sub$treatment)[[f]]
+  
+  aov.results <- bind_rows(aov.results, modobj)
+}
+
+t1locsum <- left_join(t1locsum, aov.results, by = c('time', 'treatment', 'location'))
+rm(datf, modobj, aov.results)
+t1locsum$p <- ifelse(is.na(t1locsum$p), '', t1locsum$p)
+t1locsum$sig <- ifelse(is.na(t1locsum$sig), '', t1locsum$sig)
+
+# lice maps
+
+# lumpfish small
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '0' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '0' & t1locsum$treatment == 'Small lumpfish'])
+map.lice(licelocs, 2.9, T, F, 'Mean lice')
+slm0 <- salplot
+
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '24' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '24' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '24' & t1locsum$treatment == 'Small lumpfish'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+slm24 <- salplot
+
+slmtitle <- ggdraw() +
+  draw_label('Small Lumpfish', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+
+# Large lumpfish
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '0' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '0' & t1locsum$treatment == 'Large lumpfish'])
+map.lice(licelocs, 2.9, T, F, 'Mean lice')
+llm0 <- salplot
+
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '24' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '24' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '24' & t1locsum$treatment == 'Large lumpfish'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+llm24 <- salplot
+
+llmtitle <- ggdraw() +
+  draw_label('Large lumpfish', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+
+# Wrasse
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '0' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '0' & t1locsum$treatment == 'Wrasse'])
+map.lice(licelocs, 2.9, T, F, 'Mean lice')
+wm0 <- salplot
+
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '24' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '24' & t1locsum$treatment == 'Wrasse'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '24' & t1locsum$treatment == 'Wrasse'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+wm24 <- salplot
+
+wmtitle <- ggdraw() +
+  draw_label('Wrasse', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+
+
+#48h female plots
+t1melt.sub <- filter(t1melt, time == 0 | time == 48)
+
+t1locsum <- t1melt.sub %>%
+  group_by(time, treatment, location) %>%
+  dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
+
+# subset by treatment, calculate anovas between 0h and 48h for each location and reassemble results as df
+aov.results <- data.frame()
+for(f in 1:length(unique(t1melt.sub$treatment))){
+  
+  datf <- filter(t1melt.sub, t1melt.sub$treatment == unique(t1melt.sub$treatment)[[f]])
+  
+  modobj <- datf %>% group_by(location) %>% do(model = aov(male~time, data = .)) # apply aov to each location with time as factor and create df of aov models
+  modobj$summary <- lapply(modobj$model, summary) # new column of model summaries
+  modobj$p <- unlist(lapply(modobj$summary, function(x) x[[1]]$'Pr(>F)'[1])) # extract p-values from summaries and add to new column
+  modobj$p <- ifelse(is.nan(modobj$p), 1, modobj$p) # change NaNs to 1
+  modobj$sig <- ifelse(modobj$p < 0.001, '***', ifelse(modobj$p < 0.01, '**', ifelse(modobj$p < 0.05, '*', ''))) # calculate significance and add to new column
+  modobj <- select(modobj, -model, -summary)
+  modobj$time <- factor(48, levels = c(0, 24, 48, 72, 96))
+  modobj$treatment <- unique(t1melt.sub$treatment)[[f]]
+  
+  aov.results <- bind_rows(aov.results, modobj)
+}
+
+t1locsum <- left_join(t1locsum, aov.results, by = c('time', 'treatment', 'location'))
+rm(datf, modobj, aov.results)
+t1locsum$p <- ifelse(is.na(t1locsum$p), '', t1locsum$p)
+t1locsum$sig <- ifelse(is.na(t1locsum$sig), '', t1locsum$sig)
+
+# lice maps
+
+# lumpfish small
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '48' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '48' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '48' & t1locsum$treatment == 'Small lumpfish'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+slm48 <- salplot
+
+# Large lumpfish
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '48' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '48' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '48' & t1locsum$treatment == 'Large lumpfish'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+llm48 <- salplot
+
+# Wrasse
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '48' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '48' & t1locsum$treatment == 'Wrasse'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '48' & t1locsum$treatment == 'Wrasse'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+wm48 <- salplot
+
+
+#72h female plots
+t1melt.sub <- filter(t1melt, time == 0 | time == 72)
+
+t1locsum <- t1melt.sub %>%
+  group_by(time, treatment, location) %>%
+  dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
+
+# subset by treatment, calculate anovas between 0h and 72h for each location and reassemble results as df
+aov.results <- data.frame()
+for(f in 1:length(unique(t1melt.sub$treatment))){
+  
+  datf <- filter(t1melt.sub, t1melt.sub$treatment == unique(t1melt.sub$treatment)[[f]])
+  
+  modobj <- datf %>% group_by(location) %>% do(model = aov(male~time, data = .)) # apply aov to each location with time as factor and create df of aov models
+  modobj$summary <- lapply(modobj$model, summary) # new column of model summaries
+  modobj$p <- unlist(lapply(modobj$summary, function(x) x[[1]]$'Pr(>F)'[1])) # extract p-values from summaries and add to new column
+  modobj$p <- ifelse(is.nan(modobj$p), 1, modobj$p) # change NaNs to 1
+  modobj$sig <- ifelse(modobj$p < 0.001, '***', ifelse(modobj$p < 0.01, '**', ifelse(modobj$p < 0.05, '*', ''))) # calculate significance and add to new column
+  modobj <- select(modobj, -model, -summary)
+  modobj$time <- factor(72, levels = c(0, 24, 48, 72, 96))
+  modobj$treatment <- unique(t1melt.sub$treatment)[[f]]
+  
+  aov.results <- bind_rows(aov.results, modobj)
+}
+
+t1locsum <- left_join(t1locsum, aov.results, by = c('time', 'treatment', 'location'))
+rm(datf, modobj, aov.results)
+t1locsum$p <- ifelse(is.na(t1locsum$p), '', t1locsum$p)
+t1locsum$sig <- ifelse(is.na(t1locsum$sig), '', t1locsum$sig)
+
+# lice maps
+
+# lumpfish small
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '72' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '72' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '72' & t1locsum$treatment == 'Small lumpfish'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+slm72 <- salplot
+
+# Large lumpfish
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '72' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '72' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '72' & t1locsum$treatment == 'Large lumpfish'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+llm72 <- salplot
+
+# Wrasse
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '72' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '72' & t1locsum$treatment == 'Wrasse'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '72' & t1locsum$treatment == 'Wrasse'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+wm72 <- salplot
+
+#96h female plots
+t1melt.sub <- filter(t1melt, time == 0 | time == 96)
+
+t1locsum <- t1melt.sub %>%
+  group_by(time, treatment, location) %>%
+  dplyr::summarise(mean.m = mean(male), sd.m = sd(male), mean.f = mean(female), sd.f = sd(female), mean.t = mean(total), sd.t = sd(total)) 
+
+# subset by treatment, calculate anovas between 0h and 96h for each location and reassemble results as df
+aov.results <- data.frame()
+for(f in 1:length(unique(t1melt.sub$treatment))){
+  
+  datf <- filter(t1melt.sub, t1melt.sub$treatment == unique(t1melt.sub$treatment)[[f]])
+  
+  modobj <- datf %>% group_by(location) %>% do(model = aov(male~time, data = .)) # apply aov to each location with time as factor and create df of aov models
+  modobj$summary <- lapply(modobj$model, summary) # new column of model summaries
+  modobj$p <- unlist(lapply(modobj$summary, function(x) x[[1]]$'Pr(>F)'[1])) # extract p-values from summaries and add to new column
+  modobj$p <- ifelse(is.nan(modobj$p), 1, modobj$p) # change NaNs to 1
+  modobj$sig <- ifelse(modobj$p < 0.001, '***', ifelse(modobj$p < 0.01, '**', ifelse(modobj$p < 0.05, '*', ''))) # calculate significance and add to new column
+  modobj <- select(modobj, -model, -summary)
+  modobj$time <- factor(96, levels = c(0, 24, 48, 72, 96))
+  modobj$treatment <- unique(t1melt.sub$treatment)[[f]]
+  
+  aov.results <- bind_rows(aov.results, modobj)
+}
+
+t1locsum <- left_join(t1locsum, aov.results, by = c('time', 'treatment', 'location'))
+rm(datf, modobj, aov.results)
+t1locsum$p <- ifelse(is.na(t1locsum$p), '', t1locsum$p)
+t1locsum$sig <- ifelse(is.na(t1locsum$sig), '', t1locsum$sig)
+
+# lice maps
+
+# lumpfish small
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '96' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '96' & t1locsum$treatment == 'Small lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '96' & t1locsum$treatment == 'Small lumpfish'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+slm96 <- salplot
+
+# Large lumpfish
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '96' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '96' & t1locsum$treatment == 'Large lumpfish'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '96' & t1locsum$treatment == 'Large lumpfish'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+llm96 <- salplot
+
+# Wrasse
+licelocs <- data.frame(location = unique(t1locsum$location), 
+                       lice.m = t1locsum$mean.m[t1locsum$time == '96' & t1locsum$treatment == 'Wrasse'],
+                       lice.sd = t1locsum$sd.m[t1locsum$time == '96' & t1locsum$treatment == 'Wrasse'],
+                       lice.sig = t1locsum$sig[t1locsum$time == '96' & t1locsum$treatment == 'Wrasse'])
+
+map.lice(licelocs, 2.9, T, T, 'Mean lice')
+wm96 <- salplot
+
+T0title <- ggdraw() +
+  draw_label('0h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+T24title <- ggdraw() +
+  draw_label('24h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+T48title <- ggdraw() +
+  draw_label('48h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+T72title <- ggdraw() +
+  draw_label('72h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+T96title <- ggdraw() +
+  draw_label('96h', fontface = 'bold', x = 0.5, hjust = 0.5, size = 12)
+
+# All treatments plot
+slmplot <- plot_grid(slmtitle, slm0, slm24, slm48, slm72, slm96, nrow = 7, ncol = 1, rel_heights = c(0.05, rep(0.17, 5), 0.1), 
+                     labels = c('', ' 0h', '24h', '48h', '72h', '96h'), label_size = 12, vjust = 4, hjust = -2)
+
+llmplot <- plot_grid(llmtitle, llm0, llm24, llm48, llm72, llm96, liceleg, nrow = 7, ncol = 1, rel_heights = c(0.05, rep(0.17, 5), 0.1), 
+                     labels = c('', ' 0h', '24h', '48h', '72h', '96h'), label_size = 12, vjust = 4, hjust = -2)
+
+wmplot <- plot_grid(wmtitle, wm0, wm24, wm48, wm72, wm96, nrow = 7, ncol = 1, rel_heights = c(0.05, rep(0.17, 5), 0.1), 
+                    labels = c('', ' 0h', '24h', '48h', '72h', '96h'), label_size = 12, vjust = 4, hjust = -2)
+
+plot_grid(slmplot, llmplot, wmplot, nrow = 1, ncol = 3)

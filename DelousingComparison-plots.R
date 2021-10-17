@@ -736,15 +736,17 @@ TukeyHSD(anova)
 # https://rcompanion.org/handbook/I_09.html
 library(nlme)
 
+t1data.s$fish2 <- rep(seq(1, 120, 1), 5)
+
 model <- t1data.s %>%
-  group_by(time, tank, treatment, replicate) %>%
-  dplyr::summarise(mean.m = mean(total.m), mean.f = mean(total.f), mean.t = mean(total)) %>%
-  ungroup() %>%
+  #group_by(time, tank, treatment, replicate) %>%
+  #dplyr::summarise(mean.m = mean(total.m), mean.f = mean(total.f), mean.t = mean(total)) %>%
+  #ungroup() %>%
   mutate(time = as.numeric(time)) %>%
-  lme(mean.f ~ treatment + time + treatment*time, 
-            random = ~1|tank,
-            correlation = corAR1(form = ~ time | tank,
-                                 value = 0.6273),
+  lme(total.f ~ treatment + time + treatment:replicate + treatment:time, 
+            random = ~1|fish2,
+            correlation = corAR1(form = ~ time | fish2,
+                                 value = 0.0643),
             data = .,
             method = "REML")
 
@@ -777,6 +779,6 @@ marginal <- lsmeans(model,
                    ~ treatment:time)
 
 cld(marginal,
-    alpha   = 0.2, 
+    alpha   = 0.05, 
     Letters = letters,     ### Use lower-case letters for .group
     adjust  = "tukey")     ###  Tukey-adjusted comparisons

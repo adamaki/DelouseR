@@ -19,7 +19,6 @@ library(colorRamps)
 library(forcats)
 library(RColorBrewer)
 library(tidyr)
-library(cowplot)
 library(viridis)
 
 # FUNCTIONS----------------------------------------------------------------------------------------------------
@@ -28,10 +27,10 @@ library(viridis)
 map.lice <- function(locations, maxlice, msdvalues = T, pvalues = T, leg = 'No. lice'){
   
   locations$bins <- as.numeric(cut(locations$lice.m, breaks = seq(-0.1, maxlice, 0.1), labels = seq(1, (maxlice+0.1)*10, 1)))
-  #licepal <- rev(heat.colors((maxlice+0.1)*10, alpha = 0.5))
-  licepal <- rev(gray.colors((maxlice+0.1)*10, start = 0.4, end = 0.95, gamma = 2.2))
+  licepal <- rev(heat.colors((maxlice+0.1)*10, alpha = 0.5))
+  #licepal <- rev(gray.colors((maxlice+0.1)*10, start = 0.4, end = 0.95, gamma = 2.2))
   
-  salcol <- image_read('/Users/adambrooker/Dropbox/1-IoA/cleanerfish/Projects/SAIC Lumpfish/Delousing Trials/SalmonOutline.bmp')
+  salcol <- image_read('/Users/adambrooker/Dropbox/1-IoA/Projects/SAIC Lumpfish/Delousing Trials/SalmonOutline.bmp')
   salcol <- if(locations$bins[[1]] > 0) {image_fill(salcol, licepal[[locations$bins[[1]]]], point = '+156+227', fuzz = 40)} else {salcol} #head
   salcol <- if(locations$bins[[2]] > 0) {image_fill(salcol, licepal[[locations$bins[[2]]]], point = '+299+124', fuzz = 40)} else {salcol} # front dorsal
   salcol <- if(locations$bins[[3]] > 0) {image_fill(salcol, licepal[[locations$bins[[3]]]], point = '+630+116', fuzz = 40)} else {salcol} # mid dorsal
