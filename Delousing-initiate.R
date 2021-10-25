@@ -180,7 +180,7 @@ heading.func <- function(df, thresh){
       
     if(diffx[[i]] > 0 & diffy[[i]] > 0) {
       
-      heading <- c(heading, round((atan(diffy[[i]]/diffx[[i]]))*180/pi, 2))
+      heading <- c(heading, round((atan(diffx[[i]]/diffy[[i]]))*180/pi, 2))
       
     } else {
       

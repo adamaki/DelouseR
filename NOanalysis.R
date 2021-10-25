@@ -20,14 +20,13 @@ t3data$time <- dplyr::recode(t3data$time, '1' = 0, '2' = 48, '3' = 96, '4' = 144
 # load tracking data
 #workingdir <- 'G:/Data/Cleaner fish delousing/Novel Object videos/Individual wrasse' # change to location of data
 #wrasse videos
-workingdir <- '/Users/adambrooker/Dropbox/cleanerfish/Current/Delousing - individual wrasse' # change to location of data
-workingdir <- '/Users/adambrooker/OneDrive - University of Stirling/Lumpfish NO test' # change to location of data
+workingdir <- '/Users/adambrooker/Dropbox/1-IoA/Projects/SAIC Lumpfish/Delousing Trials/T3 Individual Wrasse/NO tests' # change to location of data
 #lumpfish videos
 workingdir <- '/Users/adambrooker/OneDrive - University of Stirling/Lumpfish NO test'
 
 setwd(workingdir)
 
-files <- list.files(path = workingdir, pattern = 'C.*.csv', all.files = FALSE, recursive = FALSE)
+files <- list.files(path = workingdir, pattern = 'C*.csv', all.files = FALSE, recursive = FALSE)
 
 
 # Read behaviour files into one dataframe
@@ -82,31 +81,31 @@ tdat$dir <- ifelse(is.na(tdat$cmsec), NA, tdat$dir) # change 1st row of each fis
 tdat$move <- ifelse(is.na(tdat$cmsec), NA, ifelse(is.na(tdat$head), 'S', 'M')) # column for fish moving static or moving
 
 # calculate fish eye looking at novel object
-nocoords <- c(71, 50)
+nocoords <- c(239, 177) # pixel coordinates, not real coordinates
 
 eye <- character()
 
 for (i in 1:nrow(tdat)){
   
-  if(tdat$fish.rx[i] >= nocoords[1] & tdat$fish.ry[i] < nocoords[2]){
+  if(tdat$fish.px[i] >= nocoords[1] & tdat$fish.py[i] < nocoords[2]){
     
     eye <- c(eye, ifelse(tdat$dir[i] == 'N' | tdat$dir[i] == 'W', 'L', 'R'))
     
   } else {
     
-    if(tdat$fish.rx[i] >= nocoords[1] & tdat$fish.ry[i] >= nocoords[2]){
+    if(tdat$fish.px[i] >= nocoords[1] & tdat$fish.py[i] >= nocoords[2]){
       
       eye <- c(eye, ifelse(tdat$dir[i] == 'N' | tdat$dir[i] == 'E', 'L', 'R'))
     
     } else {
         
-      if(tdat$fish.rx[i] < nocoords[1] & tdat$fish.ry[i] >= nocoords[2]){
+      if(tdat$fish.px[i] < nocoords[1] & tdat$fish.py[i] >= nocoords[2]){
         
         eye <- c(eye, ifelse(tdat$dir[i] == 'S' | tdat$dir[i] == 'E', 'L', 'R'))
         
       } else {
         
-        if(tdat$fish.rx[i] < nocoords[1] & tdat$fish.ry[i] < nocoords[2]){
+        if(tdat$fish.px[i] < nocoords[1] & tdat$fish.py[i] < nocoords[2]){
           
           eye <- c(eye, ifelse(tdat$dir[i] == 'S' | tdat$dir[i] == 'W', 'L', 'R'))
           
@@ -715,6 +714,31 @@ ggplot(data = tdat, aes(x = fish.rx, y = fish.ry, colour = frame)) +
   annotate('rect', xmin = 68, xmax = 73.5, ymin = 47.5, ymax = 53) + # draw novel object
   theme_classic()
 
+# Plot fish tracks coloured by eye viewing
+tdat %>%
+  ggplot(aes(x = fish.rx, y = fish.ry, colour = eye, group = phase)) +
+  geom_path(size = 0.4) +
+  scale_y_reverse(name = 'cm') +
+  scale_x_continuous(name = 'cm') +
+  scale_color_discrete(labels = c('Left', 'Right')) +
+  #scale_color_discrete(values = c('R' = 'Right', 'L' = 'Left')) +
+  facet_wrap(~ID) +
+  annotate("path", x = 50+50*cos(seq(0,2*pi,length.out=100)), y = 50+50*sin(seq(0,2*pi,length.out=100)), colour = 'blue') + # draw tank circle
+  annotate('rect', xmin = 68, xmax = 73.5, ymin = 47.5, ymax = 53) + # draw novel object
+  theme_classic()
+
+# Plot fish tracks coloured by heading
+tdat %>%
+  ggplot(aes(x = fish.rx, y = fish.ry, colour = dir, group = phase)) +
+  geom_path(size = 0.4) +
+  scale_y_reverse(name = 'cm') +
+  scale_x_continuous(name = 'cm') +
+  #scale_color_discrete(labels = c('N', 'E', 'S', 'W')) +
+  #scale_color_discrete(values = c('R' = 'Right', 'L' = 'Left')) +
+  facet_wrap(~ID) +
+  annotate("path", x = 50+50*cos(seq(0,2*pi,length.out=100)), y = 50+50*sin(seq(0,2*pi,length.out=100)), colour = 'blue') + # draw tank circle
+  annotate('rect', xmin = 68, xmax = 73.5, ymin = 47.5, ymax = 53) + # draw novel object
+  theme_classic()
 
 # plot velocity for each fish
 ggplot(data = tdat, aes(x = frame, y = cmsec, colour = ability)) +

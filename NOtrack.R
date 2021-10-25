@@ -28,18 +28,18 @@ readinteger <- function(message = 'Not a number')
 # 1. Set working directory and input variables----------------------------
 
 #wrasse videos
-workingdir <- '/Users/adambrooker/OneDrive - University of Stirling/Tank delousing trials/Wrasse NO tests/C8-S' # change to location of data 
+workingdir <- '/Users/adambrooker/OneDrive - University of Stirling/Tank delousing trials/Wrasse NO tests/C12-S' # change to location of data 
 
 #lumpfish videos
 workingdir <- '/Users/adambrooker/OneDrive - University of Stirling/Wrasse NO tests 2021/C9-S'
 setwd(workingdir)
 
-inputfile <- 'C8'
+inputfile <- 'C12'
 files <- list.files(path = workingdir, pattern = inputfile, all.files = FALSE, recursive = FALSE)
-start <- 204 # start frame number
-end <- 305 # end frame number
+start <- 203 # start frame number
+end <- 302 # end frame number
 rotangle <- 3 # image rotation angle to translate image to cartesian grid
-xrange <- c(172,510) # x-axis crop dimensions
+xrange <- c(165,503) # x-axis crop dimensions
 yrange <- c(25, 358) # y-axis crop dimensions
 
 centre <- c(170, 169) # coords for centre of tank in cropped and rotated image
